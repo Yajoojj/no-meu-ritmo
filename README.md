@@ -93,3 +93,5 @@ python -m unittest
 A aplicação foi preparada para deploy na Vercel usando o Flask como backend. A landing page fica na rota principal e a API fica em `/api`.
 
 O frontend Flet é executado localmente para a demonstração, porque esse é o uso mais comum da tecnologia pedida na atividade.
+
+Repositório público: <https://github.com/Yajoojj/no-meu-ritmo>
