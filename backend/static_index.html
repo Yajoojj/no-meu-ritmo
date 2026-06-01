@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>No Meu Ritmo!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  </head>
+  <body class="bg-neutral-100 text-neutral-950 antialiased">
+    <main class="mx-auto min-h-screen w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header class="mb-5 flex flex-col gap-3 border-b border-neutral-300 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">Painel de estudos</p>
+          <h1 class="text-2xl font-semibold tracking-tight">No Meu Ritmo!</h1>
+        </div>
+        <nav class="flex flex-wrap gap-2">
+          <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/apidocs/">Swagger</a>
+          <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/api/materias">API</a>
+          <button id="downloadPdfButton" class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50">Baixar PDF</button>
+          <button id="refreshButton" class="rounded-md bg-neutral-950 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800">Atualizar</button>
+        </nav>
+      </header>
+
+      <section class="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Tempo planejado</p>
+          <strong id="plannedMinutes" class="mt-2 block text-3xl font-semibold">0 min</strong>
+        </article>
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Tempo registrado</p>
+          <strong id="doneMinutes" class="mt-2 block text-3xl font-semibold">0 min</strong>
+        </article>
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Foco médio</p>
+          <strong id="avgFocus" class="mt-2 block text-3xl font-semibold">-</strong>
+        </article>
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Sessões</p>
+          <strong id="sessionCount" class="mt-2 block text-3xl font-semibold">0</strong>
+        </article>
+      </section>
+
+      <section class="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <div class="space-y-5">
+          <section class="border border-neutral-300 bg-white p-4">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-semibold">Plano de hoje</h2>
+                <p class="text-sm text-neutral-600">Use estes blocos como referência e registre o que realmente estudou.</p>
+              </div>
+            </div>
+            <div id="planList" class="grid gap-3 md:grid-cols-3"></div>
+          </section>
+
+          <section class="border border-neutral-300 bg-white p-4">
+            <h2 class="text-lg font-semibold">Matérias</h2>
+            <form id="subjectForm" method="post" action="/api/materias" class="mt-4 grid gap-3 border-b border-neutral-200 pb-4 md:grid-cols-[1fr_140px_90px_auto]">
+              <input id="subjectId" type="hidden" />
+              <input id="subjectName" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="Nova matéria" required minlength="2" />
+              <select id="subjectPriority" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
+                <option value="media">Média</option>
+                <option value="alta">Alta</option>
+                <option value="baixa">Baixa</option>
+              </select>
+              <input id="subjectColor" type="color" value="#2563eb" class="h-10 w-full rounded-md border border-neutral-300 bg-white px-2" />
+              <button id="subjectSubmit" class="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400" type="submit">Salvar</button>
+              <input id="subjectDescription" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950 md:col-span-3" placeholder="Descrição curta" />
+              <button id="cancelSubjectEdit" class="hidden rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium hover:bg-neutral-50" type="button">Cancelar</button>
+            </form>
+            <div id="subjectList" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+          </section>
+        </div>
+
+        <aside class="space-y-5">
+          <section class="border border-neutral-300 bg-white p-4">
+            <h2 class="text-lg font-semibold">Registrar sessão</h2>
+            <form id="sessionForm" method="post" action="/api/sessoes" class="mt-4 space-y-3">
+              <label class="block">
+                <span class="text-sm font-medium">Matéria</span>
+                <input id="materia" name="materia" required minlength="2" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="Ex: Cálculo, Redes, Programação Web" />
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-sm font-medium">Tipo</span>
+                  <select id="tipo_estudo" name="tipo_estudo" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
+                    <option value="projeto">Projeto</option>
+                    <option value="exercicios">Exercícios</option>
+                    <option value="revisao">Revisão</option>
+                    <option value="leitura">Leitura</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-sm font-medium">Foco</span>
+                  <select id="nivel_foco" name="nivel_foco" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
+                    <option value="5">5</option>
+                    <option value="4" selected>4</option>
+                    <option value="3">3</option>
+                    <option value="2">2</option>
+                    <option value="1">1</option>
+                  </select>
+                </label>
+              </div>
+              <label class="block">
+                <span class="text-sm font-medium">Duração em minutos</span>
+                <input id="duracao_minutos" name="duracao_minutos" required type="number" min="1" max="300" value="40" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" />
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium">Observação</span>
+                <textarea id="observacao" name="observacao" rows="3" maxlength="240" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="O que você estudou?"></textarea>
+              </label>
+              <button id="sessionSubmit" class="w-full rounded-md bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400" type="submit">Salvar sessão</button>
+              <p id="feedback" class="min-h-5 text-sm font-medium"></p>
+            </form>
+          </section>
+
+          <section class="border border-neutral-300 bg-white p-4">
+            <h2 class="text-lg font-semibold">Histórico</h2>
+            <div id="sessionList" class="mt-4 max-h-[430px] space-y-3 overflow-auto pr-1"></div>
+          </section>
+        </aside>
+      </section>
+
+    </main>
+
+    <script>
+      const state = { materias: [], plano: [], sessoes: [] };
+      const $ = (id) => document.getElementById(id);
+      const storageKey = "no-meu-ritmo-sessoes";
+      const subjectStorageKey = "no-meu-ritmo-materias";
+
+      function localSessions() {
+        try {
+          return JSON.parse(localStorage.getItem(storageKey) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveLocalSessions(sessoes) {
+        localStorage.setItem(storageKey, JSON.stringify(sessoes));
+      }
+
+      function localSubjects() {
+        try {
+          return JSON.parse(localStorage.getItem(subjectStorageKey) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveLocalSubjects(materias) {
+        localStorage.setItem(subjectStorageKey, JSON.stringify(materias));
+      }
+
+      function clearLegacyQueryString() {
+        const params = new URLSearchParams(window.location.search);
+        const formFields = ["materia", "tipo_estudo", "nivel_foco", "duracao_minutos", "observacao"];
+        if (!formFields.some((field) => params.has(field))) return;
+        formFields.forEach((field) => {
+          if (params.has(field) && $(field)) {
+            $(field).value = params.get(field) || "";
+          }
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      function mergeSubjects(apiSubjects, browserSubjects, sessoes) {
+        const byName = new Map();
+        [...apiSubjects, ...browserSubjects].forEach((materia) => {
+          if (!materia.nome) return;
+          byName.set(materia.nome, { ...materia, total_minutos: 0, total_sessoes: 0 });
+        });
+        sessoes.forEach((sessao) => {
+          const nome = sessao.materia;
+          if (!nome) return;
+          if (!byName.has(nome)) {
+            byName.set(nome, {
+              id: Date.now() + byName.size,
+              nome,
+              prioridade: "media",
+              cor: colorForName(nome),
+              descricao: "",
+              total_minutos: 0,
+              total_sessoes: 0
+            });
+          }
+          const materia = byName.get(nome);
+          materia.total_minutos += Number(sessao.duracao_minutos || 0);
+          materia.total_sessoes += 1;
+        });
+        return [...byName.values()];
+      }
+
+      function usingRemoteSubjects(apiSubjects) {
+        return Array.isArray(apiSubjects) && apiSubjects.length > 0;
+      }
+
+      function mergeSessions(apiSessions, browserSessions) {
+        const seen = new Set();
+        return [...apiSessions, ...browserSessions].filter((sessao) => {
+          const key = [
+            sessao.id,
+            sessao.materia,
+            sessao.tipo_estudo,
+            sessao.duracao_minutos,
+            sessao.nivel_foco,
+            sessao.observacao,
+            sessao.data_registro
+          ].join("|");
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;"
+        })[char]);
+      }
+
+      async function getJson(path) {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`Erro ${response.status}`);
+        return response.json();
+      }
+
+      function renderStats() {
+        const planned = state.plano.reduce((total, item) => total + Number(item.duracao_minutos || 0), 0);
+        const done = state.sessoes.reduce((total, item) => total + Number(item.duracao_minutos || 0), 0);
+        const focusValues = state.sessoes.map((item) => Number(item.nivel_foco || 0)).filter(Boolean);
+        const avg = focusValues.length ? (focusValues.reduce((a, b) => a + b, 0) / focusValues.length).toFixed(1) : "-";
+        $("plannedMinutes").textContent = `${planned} min`;
+        $("doneMinutes").textContent = `${done} min`;
+        $("avgFocus").textContent = avg;
+        $("sessionCount").textContent = state.sessoes.length;
+      }
+
+      function renderPlano() {
+        if (!state.plano.length) {
+          $("planList").innerHTML = '<p class="text-sm text-neutral-600 md:col-span-3">Registre uma sessão para gerar sugestões de plano com base no seu histórico real.</p>';
+          return;
+        }
+        $("planList").innerHTML = state.plano.map((item) => `
+          <article class="border border-neutral-200 p-3">
+            <div class="flex items-center justify-between text-sm">
+              <strong>${escapeHtml(item.horario)}</strong>
+              <span class="text-neutral-500">${escapeHtml(item.duracao_minutos)} min</span>
+            </div>
+            <h3 class="mt-3 font-semibold">${escapeHtml(item.materia)}</h3>
+            <p class="mt-1 text-sm text-neutral-600">${escapeHtml(item.meta)}</p>
+            <button class="mt-3 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50" data-plan="${escapeHtml(item.materia)}" data-type="${escapeHtml(item.tipo)}" data-duration="${escapeHtml(item.duracao_minutos)}">Usar no formulário</button>
+          </article>
+        `).join("");
+      }
+
+      function renderMaterias() {
+        if (!state.materias.length) {
+          $("subjectList").innerHTML = '<p class="text-sm text-neutral-600 sm:col-span-2">Nenhuma matéria ainda. Ao salvar uma sessão, a matéria aparece aqui automaticamente.</p>';
+          return;
+        }
+        $("subjectList").innerHTML = state.materias.map((item) => `
+          <article class="border border-neutral-200 p-3">
+            <div class="flex items-center gap-2">
+              <span class="h-3 w-3 rounded-full" style="background:${escapeHtml(item.cor)}"></span>
+              <h3 class="font-semibold">${escapeHtml(item.nome)}</h3>
+              <span class="ml-auto rounded-full bg-neutral-100 px-2 py-1 text-xs text-neutral-600">${escapeHtml(item.prioridade)}</span>
+            </div>
+            <p class="mt-2 text-sm text-neutral-600">${escapeHtml(item.descricao)}</p>
+            <div class="mt-3 flex gap-2">
+              <button class="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50" data-edit-subject="${escapeHtml(item.id)}">Editar</button>
+              <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50" data-delete-subject="${escapeHtml(item.id)}">Excluir</button>
+            </div>
+          </article>
+        `).join("");
+      }
+
+      function renderSessoes() {
+        if (!state.sessoes.length) {
+          $("sessionList").innerHTML = '<p class="text-sm text-neutral-600">Nenhuma sessão registrada ainda.</p>';
+          return;
+        }
+        $("sessionList").innerHTML = [...state.sessoes].reverse().map((item) => `
+          <article class="border border-neutral-200 p-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="font-semibold">${escapeHtml(item.materia || item.nome || "Matéria")}</h3>
+                <p class="text-sm text-neutral-600">${escapeHtml(item.tipo_estudo)} · ${escapeHtml(item.duracao_minutos)} min · foco ${escapeHtml(item.nivel_foco)}</p>
+              </div>
+              <span class="text-xs text-neutral-500">${escapeHtml(item.data_registro || "")}</span>
+            </div>
+            ${item.observacao ? `<p class="mt-2 text-sm text-neutral-700">${escapeHtml(item.observacao)}</p>` : ""}
+          </article>
+        `).join("");
+      }
+
+      function renderAll() {
+        renderStats();
+        renderPlano();
+        renderMaterias();
+        renderSessoes();
+      }
+
+      async function loadData() {
+        $("feedback").textContent = "";
+        const results = await Promise.allSettled([
+          getJson("/api/materias"),
+          getJson("/api/plano-hoje"),
+          getJson("/api/sessoes")
+        ]);
+        const apiSessions = results[2].status === "fulfilled" ? results[2].value : [];
+        state.sessoes = mergeSessions(apiSessions, localSessions());
+        const apiSubjects = results[0].status === "fulfilled" ? results[0].value : [];
+        state.materias = mergeSubjects(apiSubjects, usingRemoteSubjects(apiSubjects) ? [] : localSubjects(), state.sessoes);
+        state.plano = buildPlan(state.materias);
+        renderAll();
+        if (results.some((result) => result.status === "rejected")) {
+          $("feedback").className = "min-h-5 text-sm font-medium text-amber-700";
+          $("feedback").textContent = "Alguns dados não carregaram agora. Você ainda pode registrar uma sessão.";
+        }
+      }
+
+      document.addEventListener("click", async (event) => {
+        const editButton = event.target.closest("[data-edit-subject]");
+        if (editButton) {
+          const subject = state.materias.find((item) => String(item.id) === String(editButton.dataset.editSubject));
+          if (!subject) return;
+          $("subjectId").value = subject.id;
+          $("subjectName").value = subject.nome;
+          $("subjectPriority").value = subject.prioridade || "media";
+          $("subjectColor").value = subject.cor || "#2563eb";
+          $("subjectDescription").value = subject.descricao || "";
+          $("cancelSubjectEdit").classList.remove("hidden");
+          return;
+        }
+
+        const deleteButton = event.target.closest("[data-delete-subject]");
+        if (deleteButton) {
+          const id = deleteButton.dataset.deleteSubject;
+          deleteButton.disabled = true;
+          try {
+            const response = await fetch(`/api/materias/${id}`, { method: "DELETE" });
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data.detalhes || data.erro || "Não foi possível excluir a matéria.");
+            }
+            saveLocalSubjects(localSubjects().filter((item) => String(item.id) !== String(id)));
+            await loadData();
+          } catch (error) {
+            $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+            $("feedback").textContent = error.message;
+          } finally {
+            deleteButton.disabled = false;
+          }
+          return;
+        }
+
+        const button = event.target.closest("[data-plan]");
+        if (!button) return;
+        $("materia").value = button.dataset.plan;
+        $("tipo_estudo").value = button.dataset.type || "projeto";
+        $("duracao_minutos").value = button.dataset.duration || 40;
+        $("observacao").focus();
+      });
+
+      $("cancelSubjectEdit").addEventListener("click", () => {
+        $("subjectForm").reset();
+        $("subjectId").value = "";
+        $("subjectColor").value = "#2563eb";
+        $("cancelSubjectEdit").classList.add("hidden");
+      });
+
+      $("subjectForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const submitButton = $("subjectSubmit");
+        submitButton.disabled = true;
+        $("feedback").className = "min-h-5 text-sm font-medium text-neutral-600";
+        $("feedback").textContent = $("subjectId").value ? "Atualizando matéria..." : "Salvando matéria...";
+        const id = $("subjectId").value || String(Date.now());
+        let materia = {
+          id,
+          nome: $("subjectName").value.trim(),
+          prioridade: $("subjectPriority").value,
+          cor: $("subjectColor").value,
+          descricao: $("subjectDescription").value.trim() || ""
+        };
+        const method = $("subjectId").value ? "PUT" : "POST";
+        const path = $("subjectId").value ? `/api/materias/${id}` : "/api/materias";
+        try {
+          const response = await fetch(path, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(materia)
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.erro || "Não foi possível salvar a matéria.");
+          materia = data.materia || materia;
+        } catch (error) {
+          if (error instanceof TypeError) {
+            const local = localSubjects().filter((item) => String(item.id) !== String(id) && item.nome !== materia.nome);
+            local.push(materia);
+            saveLocalSubjects(local);
+          } else {
+            $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+            $("feedback").textContent = error.message;
+            submitButton.disabled = false;
+            return;
+          }
+        }
+        $("subjectForm").reset();
+        $("subjectId").value = "";
+        $("subjectColor").value = "#2563eb";
+        $("cancelSubjectEdit").classList.add("hidden");
+        await loadData();
+        $("feedback").className = "min-h-5 text-sm font-medium text-emerald-700";
+        $("feedback").textContent = "Matéria salva.";
+        submitButton.disabled = false;
+      });
+
+      $("sessionForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const submitButton = $("sessionSubmit");
+        submitButton.disabled = true;
+        const payload = {
+          materia: $("materia").value.trim(),
+          tipo_estudo: $("tipo_estudo").value,
+          duracao_minutos: Number($("duracao_minutos").value),
+          nivel_foco: Number($("nivel_foco").value),
+          observacao: $("observacao").value.trim() || null
+        };
+        $("feedback").className = "min-h-5 text-sm font-medium text-neutral-600";
+        $("feedback").textContent = "Salvando...";
+        try {
+          const response = await fetch("/api/sessoes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.erro || "Não foi possível salvar.");
+          $("feedback").className = "min-h-5 text-sm font-medium text-emerald-700";
+          $("feedback").textContent = data.mensagem || "Sessão salva.";
+          $("materia").value = "";
+          $("observacao").value = "";
+          saveLocalSessions(mergeSessions(localSessions(), [data.sessao]));
+          await loadData();
+        } catch (error) {
+          $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+          $("feedback").textContent = error.message;
+        } finally {
+          submitButton.disabled = false;
+        }
+      });
+
+      $("refreshButton").addEventListener("click", loadData);
+      $("downloadPdfButton").addEventListener("click", () => {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) {
+          window.location.href = "/api/relatorio.pdf";
+          return;
+        }
+        const doc = new jsPDF();
+        const total = state.sessoes.reduce((sum, item) => sum + Number(item.duracao_minutos || 0), 0);
+        const focos = state.sessoes.map((item) => Number(item.nivel_foco || 0)).filter(Boolean);
+        const focoMedio = focos.length ? (focos.reduce((a, b) => a + b, 0) / focos.length).toFixed(1) : "-";
+        let y = 18;
+        doc.setFillColor(23, 23, 23);
+        doc.rect(0, 0, 210, 34, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(18);
+        doc.text("No Meu Ritmo", 14, 16);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Relatorio de estudos - ${new Date().toLocaleDateString("pt-BR")}`, 14, 24);
+        doc.setTextColor(23, 23, 23);
+        y = 48;
+
+        const cards = [
+          ["Sessoes", String(state.sessoes.length)],
+          ["Tempo total", `${total} min`],
+          ["Foco medio", focoMedio],
+        ];
+        cards.forEach((card, index) => {
+          const x = 14 + index * 62;
+          doc.setDrawColor(212, 212, 212);
+          doc.setFillColor(250, 250, 250);
+          doc.roundedRect(x, y, 54, 24, 2, 2, "FD");
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(82, 82, 82);
+          doc.text(card[0], x + 4, y + 8);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(14);
+          doc.setTextColor(23, 23, 23);
+          doc.text(card[1], x + 4, y + 18);
+        });
+        y += 38;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.text("Materias", 14, y);
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        if (!state.materias.length) {
+          doc.text("Nenhuma materia cadastrada.", 14, y);
+          y += 10;
+        } else {
+          state.materias.forEach((materia) => {
+            doc.setDrawColor(229, 229, 229);
+            doc.line(14, y, 196, y);
+            y += 6;
+            doc.setFont("helvetica", "bold");
+            doc.text(materia.nome || "Materia", 14, y);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(82, 82, 82);
+            doc.text(`${materia.prioridade || "media"} · ${materia.total_minutos || 0} min`, 130, y);
+            doc.setTextColor(23, 23, 23);
+            y += 7;
+          });
+        }
+
+        y += 4;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.text("Historico", 14, y);
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        if (!state.sessoes.length) {
+          doc.text("Nenhuma sessao registrada ainda.", 14, y);
+        } else {
+          state.sessoes.forEach((sessao) => {
+            if (y > 265) {
+              doc.addPage();
+              y = 22;
+            }
+            doc.setDrawColor(229, 229, 229);
+            doc.setFillColor(250, 250, 250);
+            doc.roundedRect(14, y, 182, sessao.observacao ? 24 : 17, 2, 2, "FD");
+            y += 7;
+            doc.setFont("helvetica", "bold");
+            doc.text(sessao.materia || "Materia", 18, y);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(82, 82, 82);
+            doc.text(`${sessao.data_registro || ""} · ${sessao.tipo_estudo || ""} · ${sessao.duracao_minutos || 0} min · foco ${sessao.nivel_foco || "-"}`, 18, y + 6);
+            if (sessao.observacao) {
+              doc.text(doc.splitTextToSize(String(sessao.observacao), 170), 18, y + 12);
+            }
+            doc.setTextColor(23, 23, 23);
+            y += sessao.observacao ? 22 : 15;
+          });
+        }
+        doc.save(`relatorio-no-meu-ritmo-${new Date().toISOString().slice(0, 10)}.pdf`);
+      });
+      clearLegacyQueryString();
+      loadData().catch((error) => {
+        $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+        $("feedback").textContent = `Erro ao carregar dados: ${error.message}`;
+      });
+
+      function buildPlan(materias) {
+        const horarios = ["18:30", "19:20", "20:10"];
+        return [...materias]
+          .sort((a, b) => Number(a.total_minutos || 0) - Number(b.total_minutos || 0))
+          .slice(0, 3)
+          .map((materia, index) => ({
+            id: index + 1,
+            horario: horarios[index],
+            materia: materia.nome,
+            tipo: Number(materia.total_minutos || 0) > 0 ? "revisao" : "projeto",
+            duracao_minutos: 40,
+            meta: Number(materia.total_minutos || 0) > 0
+              ? `Continuar ${materia.nome} com base no histórico.`
+              : `Começar ${materia.nome} hoje.`
+          }));
+      }
+
+      function colorForName(nome) {
+        const colors = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#0f766e", "#ca8a04"];
+        return colors[[...nome].reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length];
+      }
+    </script>
+  </body>
+</html>

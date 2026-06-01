@@ -2,9 +2,14 @@ from pathlib import Path
 
 
 def carregar_landing() -> str:
-    public_index = Path(__file__).resolve().parent.parent / "public" / "index.html"
-    if public_index.exists():
-        return public_index.read_text(encoding="utf-8")
+    base_dir = Path(__file__).resolve().parent
+    candidates = [
+        base_dir.parent / "public" / "index.html",
+        base_dir / "static_index.html",
+    ]
+    for index_html in candidates:
+        if index_html.exists():
+            return index_html.read_text(encoding="utf-8")
 
     return (
         "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>"
