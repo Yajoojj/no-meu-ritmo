@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>No Meu Ritmo!</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   </head>
   <body class="bg-neutral-100 text-neutral-950 antialiased">
     <main class="mx-auto min-h-screen w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
@@ -16,7 +17,7 @@
         <nav class="flex flex-wrap gap-2">
           <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/apidocs/">Swagger</a>
           <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/api/materias">API</a>
-          <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/api/relatorio.pdf">Baixar PDF</a>
+          <button id="downloadPdfButton" class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50">Baixar PDF</button>
           <button id="refreshButton" class="rounded-md bg-neutral-950 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800">Atualizar</button>
         </nav>
       </header>
@@ -115,6 +116,37 @@
     <script>
       const state = { materias: [], plano: [], sessoes: [] };
       const $ = (id) => document.getElementById(id);
+      const storageKey = "no-meu-ritmo-sessoes";
+
+      function localSessions() {
+        try {
+          return JSON.parse(localStorage.getItem(storageKey) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveLocalSessions(sessoes) {
+        localStorage.setItem(storageKey, JSON.stringify(sessoes));
+      }
+
+      function mergeSessions(apiSessions, browserSessions) {
+        const seen = new Set();
+        return [...apiSessions, ...browserSessions].filter((sessao) => {
+          const key = [
+            sessao.id,
+            sessao.materia,
+            sessao.tipo_estudo,
+            sessao.duracao_minutos,
+            sessao.nivel_foco,
+            sessao.observacao,
+            sessao.data_registro
+          ].join("|");
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
 
       function escapeHtml(value) {
         return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -213,7 +245,8 @@
         ]);
         state.materias = results[0].status === "fulfilled" ? results[0].value : [];
         state.plano = results[1].status === "fulfilled" ? results[1].value : [];
-        state.sessoes = results[2].status === "fulfilled" ? results[2].value : [];
+        const apiSessions = results[2].status === "fulfilled" ? results[2].value : [];
+        state.sessoes = mergeSessions(apiSessions, localSessions());
         renderAll();
         if (results.some((result) => result.status === "rejected")) {
           $("feedback").className = "min-h-5 text-sm font-medium text-amber-700";
@@ -252,6 +285,7 @@
           $("feedback").className = "min-h-5 text-sm font-medium text-emerald-700";
           $("feedback").textContent = data.mensagem || "Sessão salva.";
           $("observacao").value = "";
+          saveLocalSessions(mergeSessions(localSessions(), [data.sessao]));
           await loadData();
         } catch (error) {
           $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
@@ -260,6 +294,52 @@
       });
 
       $("refreshButton").addEventListener("click", loadData);
+      $("downloadPdfButton").addEventListener("click", () => {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) {
+          window.location.href = "/api/relatorio.pdf";
+          return;
+        }
+        const doc = new jsPDF();
+        const total = state.sessoes.reduce((sum, item) => sum + Number(item.duracao_minutos || 0), 0);
+        const focos = state.sessoes.map((item) => Number(item.nivel_foco || 0)).filter(Boolean);
+        const focoMedio = focos.length ? (focos.reduce((a, b) => a + b, 0) / focos.length).toFixed(1) : "-";
+        let y = 18;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text("No Meu Ritmo - Relatorio de Estudos", 14, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}`, 14, y);
+        y += 12;
+        doc.text(`Sessoes: ${state.sessoes.length}`, 14, y);
+        doc.text(`Tempo total: ${total} min`, 75, y);
+        doc.text(`Foco medio: ${focoMedio}`, 145, y);
+        y += 14;
+        doc.setFont("helvetica", "bold");
+        doc.text("Historico", 14, y);
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        if (!state.sessoes.length) {
+          doc.text("Nenhuma sessao registrada ainda.", 14, y);
+        } else {
+          state.sessoes.forEach((sessao) => {
+            if (y > 275) {
+              doc.addPage();
+              y = 18;
+            }
+            const linha = `${sessao.data_registro || ""} - ${sessao.materia || "Materia"} - ${sessao.tipo_estudo || ""} - ${sessao.duracao_minutos || 0} min - foco ${sessao.nivel_foco || "-"}`;
+            doc.text(linha, 14, y);
+            y += 6;
+            if (sessao.observacao) {
+              doc.text(doc.splitTextToSize(String(sessao.observacao), 180), 14, y);
+              y += 10;
+            }
+          });
+        }
+        doc.save(`relatorio-no-meu-ritmo-${new Date().toISOString().slice(0, 10)}.pdf`);
+      });
       loadData().catch((error) => {
         $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
         $("feedback").textContent = `Erro ao carregar dados: ${error.message}`;
