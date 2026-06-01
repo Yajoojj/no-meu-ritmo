@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
 from backend.schemas import MateriaEntrada
+from backend.storage import autenticar_usuario
 from backend.storage import atualizar_materia as salvar_atualizacao_materia
 from backend.storage import criar_materia as salvar_materia
 from backend.storage import excluir_materia as remover_materia
@@ -10,13 +11,10 @@ from backend.storage import obter_materia as buscar_materia
 
 materias_bp = Blueprint("materias", __name__)
 
-USUARIO_MATERIAS = "aluno"
-SENHA_MATERIAS = "1234"
-
 
 def validar_usuario_materias():
     auth = request.authorization
-    if auth and auth.username == USUARIO_MATERIAS and auth.password == SENHA_MATERIAS:
+    if auth and autenticar_usuario(auth.username, auth.password):
         return None
 
     return jsonify({"erro": "Usuario ou senha invalidos para acessar as materias."}), 401, {
@@ -45,19 +43,6 @@ def listar_materias():
 
 @materias_bp.get("/materias/<int:materia_id>")
 def detalhar_materia(materia_id: int):
-    """
-    Busca uma materia pelo ID.
-    ---
-    tags:
-      - Materias
-    responses:
-      200:
-        description: Materia encontrada.
-      401:
-        description: Usuario ou senha invalidos.
-      404:
-        description: Materia nao encontrada.
-    """
     erro_login = validar_usuario_materias()
     if erro_login:
         return erro_login
@@ -70,41 +55,6 @@ def detalhar_materia(materia_id: int):
 
 @materias_bp.post("/materias")
 def criar_materia():
-    """
-    Cria uma nova materia com validacao Pydantic.
-    ---
-    tags:
-      - Materias
-    parameters:
-      - in: body
-        name: materia
-        required: true
-        schema:
-          type: object
-          required:
-            - nome
-          properties:
-            nome:
-              type: string
-              example: Redes
-            prioridade:
-              type: string
-              enum: [baixa, media, alta]
-              example: media
-            cor:
-              type: string
-              example: "#2563eb"
-            descricao:
-              type: string
-              example: Revisar conteudo para a prova.
-    responses:
-      201:
-        description: Materia criada com sucesso.
-      401:
-        description: Usuario ou senha invalidos.
-      422:
-        description: Dados invalidos.
-    """
     erro_login = validar_usuario_materias()
     if erro_login:
         return erro_login
@@ -122,21 +72,6 @@ def criar_materia():
 
 @materias_bp.put("/materias/<int:materia_id>")
 def atualizar_materia(materia_id: int):
-    """
-    Atualiza uma materia existente.
-    ---
-    tags:
-      - Materias
-    responses:
-      200:
-        description: Materia atualizada com sucesso.
-      401:
-        description: Usuario ou senha invalidos.
-      404:
-        description: Materia nao encontrada.
-      422:
-        description: Dados invalidos.
-    """
     erro_login = validar_usuario_materias()
     if erro_login:
         return erro_login
@@ -156,19 +91,6 @@ def atualizar_materia(materia_id: int):
 
 @materias_bp.delete("/materias/<int:materia_id>")
 def excluir_materia(materia_id: int):
-    """
-    Remove uma materia cadastrada.
-    ---
-    tags:
-      - Materias
-    responses:
-      200:
-        description: Materia removida com sucesso.
-      401:
-        description: Usuario ou senha invalidos.
-      404:
-        description: Materia nao encontrada.
-    """
     erro_login = validar_usuario_materias()
     if erro_login:
         return erro_login
