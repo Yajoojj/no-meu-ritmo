@@ -18,9 +18,9 @@ def validar_usuario_materias():
     if auth and autenticar_usuario(auth.username, auth.password):
         return None
 
-    return jsonify({"erro": "Usuario ou senha invalidos para acessar as materias."}), 401, {
-        "WWW-Authenticate": 'Basic realm="Materias"'
-    }
+    # Sem o header WWW-Authenticate para impedir o pop-up nativo do navegador.
+    # A tela de acesso do frontend cuida do login.
+    return jsonify({"erro": "Faca login para acessar as materias."}), 401
 
 
 @materias_bp.post("/cadastro-rapido")
