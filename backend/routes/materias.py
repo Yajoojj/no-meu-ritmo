@@ -7,6 +7,7 @@ from backend.storage import atualizar_materia as salvar_atualizacao_materia
 from backend.storage import cadastrar_usuario
 from backend.storage import criar_materia as salvar_materia
 from backend.storage import excluir_materia as remover_materia
+from backend.storage import excluir_materia_por_nome as remover_materia_por_nome
 from backend.storage import listar_materias as buscar_materias
 from backend.storage import obter_materia as buscar_materia
 
@@ -103,6 +104,14 @@ def atualizar_materia(materia_id: int):
 @materias_bp.delete("/materias/<int:materia_id>")
 def excluir_materia(materia_id: int):
     materia = remover_materia(materia_id)
+    if materia is None:
+        return jsonify({"erro": "Materia nao encontrada."}), 404
+    return jsonify({"mensagem": "Materia removida com sucesso.", "materia": materia})
+
+
+@materias_bp.delete("/materias-por-nome/<path:nome>")
+def excluir_materia_por_nome(nome: str):
+    materia = remover_materia_por_nome(nome)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify({"mensagem": "Materia removida com sucesso.", "materia": materia})

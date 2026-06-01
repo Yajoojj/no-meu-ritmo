@@ -70,6 +70,25 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
         self.assertEqual(materias[0]["nome"], "Programacao Web")
         self.assertEqual(plano[0]["materia"], "Programacao Web")
 
+    def test_exclui_materia_criada_por_sessao(self):
+        self.registrar_sessao()
+        materia = self.client.get("/api/materias").get_json()[0]
+
+        removida = self.client.delete(f"/api/materias/{materia['id']}")
+
+        self.assertEqual(removida.status_code, 200)
+        self.assertEqual(removida.get_json()["materia"]["nome"], "Programacao Web")
+        self.assertEqual(self.client.get("/api/materias").get_json(), [])
+
+    def test_exclui_materia_criada_por_sessao_usando_nome(self):
+        self.registrar_sessao()
+
+        removida = self.client.delete("/api/materias-por-nome/Programacao%20Web")
+
+        self.assertEqual(removida.status_code, 200)
+        self.assertEqual(removida.get_json()["materia"]["nome"], "Programacao Web")
+        self.assertEqual(self.client.get("/api/materias").get_json(), [])
+
     def test_rejeita_sessao_invalida(self):
         resposta = self.client.post(
             "/api/sessoes",

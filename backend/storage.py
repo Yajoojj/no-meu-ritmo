@@ -13,6 +13,7 @@ load_dotenv()
 TABELA_SESSOES = "sessoes_estudo"
 TABELA_MATERIAS = "materias"
 TABELA_USUARIOS = "usuarios_app"
+TABELA_PLANOS = "planos_estudo"
 USUARIOS_LOCAIS = [
     {
         "id": 1,
@@ -234,19 +235,54 @@ def excluir_materia(materia_id: int):
     cliente = cliente_supabase()
     materia = obter_materia(materia_id)
     if materia is None:
-        return None
+        materia = next(
+            (item for item in listar_materias() if int(item.get("id", 0)) == int(materia_id)),
+            None,
+        )
+        if materia is None:
+            return None
 
     if cliente is not None:
         try:
+            cliente.table(TABELA_PLANOS).delete().eq("materia_id", materia_id).execute()
             cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).execute()
             resposta = cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
             if resposta.data:
                 return resposta.data[0]
+            return materia
         except Exception:
             pass
 
     nome = materia.get("nome")
     MATERIAS[:] = [item for item in MATERIAS if int(item["id"]) != int(materia_id)]
+    SESSOES[:] = [sessao for sessao in SESSOES if sessao.get("materia") != nome]
+    return materia
+
+
+def excluir_materia_por_nome(nome: str):
+    nome = (nome or "").strip()
+    if not nome:
+        return None
+
+    materia = next((item for item in listar_materias() if item.get("nome") == nome), None)
+    if materia is None:
+        return None
+
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = cliente.table(TABELA_MATERIAS).select("*").eq("nome", nome).limit(1).execute()
+            if resposta.data:
+                materia_banco = resposta.data[0]
+                materia_id = materia_banco["id"]
+                cliente.table(TABELA_PLANOS).delete().eq("materia_id", materia_id).execute()
+                cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).execute()
+                cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
+                return materia_banco
+        except Exception:
+            pass
+
+    MATERIAS[:] = [item for item in MATERIAS if item.get("nome") != nome]
     SESSOES[:] = [sessao for sessao in SESSOES if sessao.get("materia") != nome]
     return materia
 

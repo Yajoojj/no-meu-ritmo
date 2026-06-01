@@ -289,7 +289,7 @@
             <p class="mt-2 text-sm text-neutral-600">${escapeHtml(item.descricao)}</p>
             <div class="mt-3 flex gap-2">
               <button class="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50" data-edit-subject="${escapeHtml(item.id)}">Editar</button>
-              <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50" data-delete-subject="${escapeHtml(item.id)}">Excluir</button>
+              <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50" data-delete-subject="${escapeHtml(item.id)}" data-delete-name="${escapeHtml(item.nome)}">Excluir</button>
             </div>
           </article>
         `).join("");
@@ -357,14 +357,19 @@
         const deleteButton = event.target.closest("[data-delete-subject]");
         if (deleteButton) {
           const id = deleteButton.dataset.deleteSubject;
+          const name = deleteButton.dataset.deleteName;
           deleteButton.disabled = true;
           try {
-            const response = await fetch(`/api/materias/${id}`, { method: "DELETE" });
+            let response = await fetch(`/api/materias/${id}`, { method: "DELETE" });
+            if (response.status === 404 && name) {
+              response = await fetch(`/api/materias-por-nome/${encodeURIComponent(name)}`, { method: "DELETE" });
+            }
             if (!response.ok) {
               const data = await response.json().catch(() => ({}));
               throw new Error(data.detalhes || data.erro || "Não foi possível excluir a matéria.");
             }
             saveLocalSubjects(localSubjects().filter((item) => String(item.id) !== String(id)));
+            saveLocalSessions(localSessions().filter((item) => item.materia !== name));
             await loadData();
           } catch (error) {
             $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
