@@ -1,11 +1,12 @@
 import unittest
 
 from backend import create_app
-from backend.data import SESSOES
+from backend.data import MATERIAS, SESSOES
 
 
 class ApiNoMeuRitmoTest(unittest.TestCase):
     def setUp(self):
+        MATERIAS.clear()
         SESSOES.clear()
         app = create_app()
         app.config["TESTING"] = True
@@ -27,6 +28,36 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
         resposta = self.client.get("/api/materias")
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.get_json(), [])
+
+    def test_crud_materias(self):
+        criada = self.client.post(
+            "/api/materias",
+            json={
+                "nome": "Redes",
+                "prioridade": "alta",
+                "cor": "#0f766e",
+                "descricao": "Revisar protocolos.",
+            },
+        )
+        self.assertEqual(criada.status_code, 201)
+        materia = criada.get_json()["materia"]
+        self.assertEqual(materia["nome"], "Redes")
+
+        atualizada = self.client.put(
+            f"/api/materias/{materia['id']}",
+            json={
+                "nome": "Redes de Computadores",
+                "prioridade": "media",
+                "cor": "#2563eb",
+                "descricao": "Camadas e protocolos.",
+            },
+        )
+        self.assertEqual(atualizada.status_code, 200)
+        self.assertEqual(atualizada.get_json()["materia"]["nome"], "Redes de Computadores")
+
+        removida = self.client.delete(f"/api/materias/{materia['id']}")
+        self.assertEqual(removida.status_code, 200)
+        self.assertEqual(self.client.get("/api/materias").get_json(), [])
 
     def test_registro_cria_materia_e_plano(self):
         resposta = self.registrar_sessao()

@@ -55,6 +55,19 @@
 
           <section class="border border-neutral-300 bg-white p-4">
             <h2 class="text-lg font-semibold">Matérias</h2>
+            <form id="subjectForm" class="mt-4 grid gap-3 border-b border-neutral-200 pb-4 md:grid-cols-[1fr_140px_90px_auto]">
+              <input id="subjectId" type="hidden" />
+              <input id="subjectName" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="Nova matéria" required minlength="2" />
+              <select id="subjectPriority" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
+                <option value="media">Média</option>
+                <option value="alta">Alta</option>
+                <option value="baixa">Baixa</option>
+              </select>
+              <input id="subjectColor" type="color" value="#2563eb" class="h-10 w-full rounded-md border border-neutral-300 bg-white px-2" />
+              <button class="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800" type="submit">Salvar</button>
+              <input id="subjectDescription" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950 md:col-span-3" placeholder="Descrição curta" />
+              <button id="cancelSubjectEdit" class="hidden rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium hover:bg-neutral-50" type="button">Cancelar</button>
+            </form>
             <div id="subjectList" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
           </section>
         </div>
@@ -108,15 +121,13 @@
         </aside>
       </section>
 
-      <footer class="mt-6 border-t border-neutral-300 py-4 text-sm text-neutral-600">
-        Projeto Flask + Blueprints + Pydantic + Swagger, com frontend Flet mantido no repositório e painel web para uso direto na Vercel.
-      </footer>
     </main>
 
     <script>
       const state = { materias: [], plano: [], sessoes: [] };
       const $ = (id) => document.getElementById(id);
       const storageKey = "no-meu-ritmo-sessoes";
+      const subjectStorageKey = "no-meu-ritmo-materias";
 
       function localSessions() {
         try {
@@ -128,6 +139,45 @@
 
       function saveLocalSessions(sessoes) {
         localStorage.setItem(storageKey, JSON.stringify(sessoes));
+      }
+
+      function localSubjects() {
+        try {
+          return JSON.parse(localStorage.getItem(subjectStorageKey) || "[]");
+        } catch {
+          return [];
+        }
+      }
+
+      function saveLocalSubjects(materias) {
+        localStorage.setItem(subjectStorageKey, JSON.stringify(materias));
+      }
+
+      function mergeSubjects(apiSubjects, browserSubjects, sessoes) {
+        const byName = new Map();
+        [...apiSubjects, ...browserSubjects].forEach((materia) => {
+          if (!materia.nome) return;
+          byName.set(materia.nome, { ...materia, total_minutos: 0, total_sessoes: 0 });
+        });
+        sessoes.forEach((sessao) => {
+          const nome = sessao.materia;
+          if (!nome) return;
+          if (!byName.has(nome)) {
+            byName.set(nome, {
+              id: Date.now() + byName.size,
+              nome,
+              prioridade: "media",
+              cor: colorForName(nome),
+              descricao: "",
+              total_minutos: 0,
+              total_sessoes: 0
+            });
+          }
+          const materia = byName.get(nome);
+          materia.total_minutos += Number(sessao.duracao_minutos || 0);
+          materia.total_sessoes += 1;
+        });
+        return [...byName.values()];
       }
 
       function mergeSessions(apiSessions, browserSessions) {
@@ -206,6 +256,10 @@
               <span class="ml-auto rounded-full bg-neutral-100 px-2 py-1 text-xs text-neutral-600">${escapeHtml(item.prioridade)}</span>
             </div>
             <p class="mt-2 text-sm text-neutral-600">${escapeHtml(item.descricao)}</p>
+            <div class="mt-3 flex gap-2">
+              <button class="rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50" data-edit-subject="${escapeHtml(item.id)}">Editar</button>
+              <button class="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50" data-delete-subject="${escapeHtml(item.id)}">Excluir</button>
+            </div>
           </article>
         `).join("");
       }
@@ -243,10 +297,10 @@
           getJson("/api/plano-hoje"),
           getJson("/api/sessoes")
         ]);
-        state.materias = results[0].status === "fulfilled" ? results[0].value : [];
-        state.plano = results[1].status === "fulfilled" ? results[1].value : [];
         const apiSessions = results[2].status === "fulfilled" ? results[2].value : [];
         state.sessoes = mergeSessions(apiSessions, localSessions());
+        state.materias = mergeSubjects([], localSubjects(), state.sessoes);
+        state.plano = buildPlan(state.materias);
         renderAll();
         if (results.some((result) => result.status === "rejected")) {
           $("feedback").className = "min-h-5 text-sm font-medium text-amber-700";
@@ -255,12 +309,68 @@
       }
 
       document.addEventListener("click", (event) => {
+        const editButton = event.target.closest("[data-edit-subject]");
+        if (editButton) {
+          const subject = state.materias.find((item) => String(item.id) === String(editButton.dataset.editSubject));
+          if (!subject) return;
+          $("subjectId").value = subject.id;
+          $("subjectName").value = subject.nome;
+          $("subjectPriority").value = subject.prioridade || "media";
+          $("subjectColor").value = subject.cor || "#2563eb";
+          $("subjectDescription").value = subject.descricao || "";
+          $("cancelSubjectEdit").classList.remove("hidden");
+          return;
+        }
+
+        const deleteButton = event.target.closest("[data-delete-subject]");
+        if (deleteButton) {
+          const id = deleteButton.dataset.deleteSubject;
+          saveLocalSubjects(localSubjects().filter((item) => String(item.id) !== String(id)));
+          fetch(`/api/materias/${id}`, { method: "DELETE" }).catch(() => {});
+          loadData();
+          return;
+        }
+
         const button = event.target.closest("[data-plan]");
         if (!button) return;
         $("materia").value = button.dataset.plan;
         $("tipo_estudo").value = button.dataset.type || "projeto";
         $("duracao_minutos").value = button.dataset.duration || 40;
         $("observacao").focus();
+      });
+
+      $("cancelSubjectEdit").addEventListener("click", () => {
+        $("subjectForm").reset();
+        $("subjectId").value = "";
+        $("subjectColor").value = "#2563eb";
+        $("cancelSubjectEdit").classList.add("hidden");
+      });
+
+      $("subjectForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const id = $("subjectId").value || String(Date.now());
+        const materia = {
+          id,
+          nome: $("subjectName").value.trim(),
+          prioridade: $("subjectPriority").value,
+          cor: $("subjectColor").value,
+          descricao: $("subjectDescription").value.trim() || ""
+        };
+        const local = localSubjects().filter((item) => String(item.id) !== String(id));
+        local.push(materia);
+        saveLocalSubjects(local);
+        const method = $("subjectId").value ? "PUT" : "POST";
+        const path = $("subjectId").value ? `/api/materias/${id}` : "/api/materias";
+        fetch(path, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(materia)
+        }).catch(() => {});
+        $("subjectForm").reset();
+        $("subjectId").value = "";
+        $("subjectColor").value = "#2563eb";
+        $("cancelSubjectEdit").classList.add("hidden");
+        await loadData();
       });
 
       $("sessionForm").addEventListener("submit", async (event) => {
@@ -344,6 +454,28 @@
         $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
         $("feedback").textContent = `Erro ao carregar dados: ${error.message}`;
       });
+
+      function buildPlan(materias) {
+        const horarios = ["18:30", "19:20", "20:10"];
+        return [...materias]
+          .sort((a, b) => Number(a.total_minutos || 0) - Number(b.total_minutos || 0))
+          .slice(0, 3)
+          .map((materia, index) => ({
+            id: index + 1,
+            horario: horarios[index],
+            materia: materia.nome,
+            tipo: Number(materia.total_minutos || 0) > 0 ? "revisao" : "projeto",
+            duracao_minutos: 40,
+            meta: Number(materia.total_minutos || 0) > 0
+              ? `Continuar ${materia.nome} com base no histórico.`
+              : `Começar ${materia.nome} hoje.`
+          }));
+      }
+
+      function colorForName(nome) {
+        const colors = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#0f766e", "#ca8a04"];
+        return colors[[...nome].reduce((sum, char) => sum + char.charCodeAt(0), 0) % colors.length];
+      }
     </script>
   </body>
 </html>

@@ -47,7 +47,6 @@ FALLBACK_LANDING_HTML = """<!doctype html>
           <section class="border border-neutral-300 bg-white p-4"><h2 class="text-lg font-semibold">Histórico</h2><div id="sessionList" class="mt-4 max-h-[430px] space-y-3 overflow-auto pr-1"></div></section>
         </aside>
       </section>
-      <footer class="mt-6 border-t border-neutral-300 py-4 text-sm text-neutral-600">Projeto Flask + Blueprints + Pydantic + Swagger, com frontend Flet mantido no repositório e painel web para uso direto na Vercel.</footer>
     </main>
     <script>
       const state = { materias: [], plano: [], sessoes: [] };

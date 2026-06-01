@@ -4,7 +4,7 @@ from functools import lru_cache
 from dotenv import load_dotenv
 from flask import current_app, has_app_context
 
-from backend.data import SESSOES, proximo_id_sessao
+from backend.data import MATERIAS, SESSOES, proximo_id_materia, proximo_id_sessao
 
 load_dotenv(".env.local")
 load_dotenv()
@@ -44,7 +44,14 @@ def listar_sessoes():
 
 
 def listar_materias():
-    materias = {}
+    materias = {
+        materia["nome"]: {
+            **materia,
+            "total_minutos": 0,
+            "total_sessoes": 0,
+        }
+        for materia in MATERIAS
+    }
     for sessao in listar_sessoes():
         nome = sessao.get("materia") or sessao.get("nome")
         if not nome:
@@ -55,7 +62,7 @@ def listar_materias():
                 "nome": nome,
                 "cor": cor_por_nome(nome),
                 "prioridade": "baixa",
-                "descricao": "Materia criada a partir das sessoes registradas.",
+                "descricao": None,
                 "total_minutos": 0,
                 "total_sessoes": 0,
             }
@@ -64,13 +71,41 @@ def listar_materias():
 
     for materia in materias.values():
         total = materia["total_minutos"]
-        materia["prioridade"] = "alta" if total >= 120 else "media" if total >= 45 else "baixa"
-        materia["descricao"] = (
-            f"{materia['total_sessoes']} sessao(oes) registrada(s), "
-            f"{materia['total_minutos']} minuto(s) estudado(s)."
-        )
+        if not materia.get("descricao"):
+            materia["descricao"] = (
+                f"{materia['total_sessoes']} sessao(oes) registrada(s), "
+                f"{materia['total_minutos']} minuto(s) estudado(s)."
+            )
 
     return list(materias.values())
+
+
+def obter_materia(materia_id: int):
+    return next((materia for materia in MATERIAS if materia["id"] == materia_id), None)
+
+
+def criar_materia(dados: dict):
+    materia = dict(dados)
+    materia["id"] = proximo_id_materia()
+    MATERIAS.append(materia)
+    return materia
+
+
+def atualizar_materia(materia_id: int, dados: dict):
+    materia = obter_materia(materia_id)
+    if materia is None:
+        return None
+    materia.update(dados)
+    materia["id"] = materia_id
+    return materia
+
+
+def excluir_materia(materia_id: int):
+    materia = obter_materia(materia_id)
+    if materia is None:
+        return None
+    MATERIAS.remove(materia)
+    return materia
 
 
 def listar_plano_hoje():
