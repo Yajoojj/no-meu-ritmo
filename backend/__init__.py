@@ -1,7 +1,5 @@
-from pathlib import Path
-
 from flasgger import Swagger
-from flask import Flask, send_from_directory
+from flask import Flask
 from flask_cors import CORS
 
 from backend.landing import carregar_landing
@@ -29,10 +27,6 @@ def create_app() -> Flask:
 
     @app.get("/")
     def landing_page():
-        public_dir = Path(__file__).resolve().parent.parent / "public"
-        index_html = public_dir / "index.html"
-        if index_html.exists():
-            return send_from_directory(public_dir, "index.html")
         return carregar_landing()
 
     return app

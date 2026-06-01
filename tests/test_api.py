@@ -90,6 +90,16 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
         self.assertEqual(resposta.content_type, "application/pdf")
         self.assertTrue(resposta.data.startswith(b"%PDF"))
 
+    def test_landing_mantem_formularios_interativos(self):
+        resposta = self.client.get("/")
+        html = resposta.get_data(as_text=True)
+
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn('document.addEventListener("click", async (event)', html)
+        self.assertIn('id="subjectForm" method="post" action="/api/materias"', html)
+        self.assertIn('id="sessionForm" method="post" action="/api/sessoes"', html)
+        self.assertIn("clearLegacyQueryString();", html)
+
 
 if __name__ == "__main__":
     unittest.main()

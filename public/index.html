@@ -55,7 +55,7 @@
 
           <section class="border border-neutral-300 bg-white p-4">
             <h2 class="text-lg font-semibold">Matérias</h2>
-            <form id="subjectForm" class="mt-4 grid gap-3 border-b border-neutral-200 pb-4 md:grid-cols-[1fr_140px_90px_auto]">
+            <form id="subjectForm" method="post" action="/api/materias" class="mt-4 grid gap-3 border-b border-neutral-200 pb-4 md:grid-cols-[1fr_140px_90px_auto]">
               <input id="subjectId" type="hidden" />
               <input id="subjectName" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="Nova matéria" required minlength="2" />
               <select id="subjectPriority" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
@@ -64,7 +64,7 @@
                 <option value="baixa">Baixa</option>
               </select>
               <input id="subjectColor" type="color" value="#2563eb" class="h-10 w-full rounded-md border border-neutral-300 bg-white px-2" />
-              <button class="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800" type="submit">Salvar</button>
+              <button id="subjectSubmit" class="rounded-md bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400" type="submit">Salvar</button>
               <input id="subjectDescription" class="rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950 md:col-span-3" placeholder="Descrição curta" />
               <button id="cancelSubjectEdit" class="hidden rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium hover:bg-neutral-50" type="button">Cancelar</button>
             </form>
@@ -75,7 +75,7 @@
         <aside class="space-y-5">
           <section class="border border-neutral-300 bg-white p-4">
             <h2 class="text-lg font-semibold">Registrar sessão</h2>
-            <form id="sessionForm" class="mt-4 space-y-3">
+            <form id="sessionForm" method="post" action="/api/sessoes" class="mt-4 space-y-3">
               <label class="block">
                 <span class="text-sm font-medium">Matéria</span>
                 <input id="materia" name="materia" required minlength="2" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="Ex: Cálculo, Redes, Programação Web" />
@@ -109,7 +109,7 @@
                 <span class="text-sm font-medium">Observação</span>
                 <textarea id="observacao" name="observacao" rows="3" maxlength="240" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="O que você estudou?"></textarea>
               </label>
-              <button class="w-full rounded-md bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800" type="submit">Salvar sessão</button>
+              <button id="sessionSubmit" class="w-full rounded-md bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400" type="submit">Salvar sessão</button>
               <p id="feedback" class="min-h-5 text-sm font-medium"></p>
             </form>
           </section>
@@ -151,6 +151,18 @@
 
       function saveLocalSubjects(materias) {
         localStorage.setItem(subjectStorageKey, JSON.stringify(materias));
+      }
+
+      function clearLegacyQueryString() {
+        const params = new URLSearchParams(window.location.search);
+        const formFields = ["materia", "tipo_estudo", "nivel_foco", "duracao_minutos", "observacao"];
+        if (!formFields.some((field) => params.has(field))) return;
+        formFields.forEach((field) => {
+          if (params.has(field) && $(field)) {
+            $(field).value = params.get(field) || "";
+          }
+        });
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
 
       function mergeSubjects(apiSubjects, browserSubjects, sessoes) {
@@ -313,7 +325,7 @@
         }
       }
 
-      document.addEventListener("click", (event) => {
+      document.addEventListener("click", async (event) => {
         const editButton = event.target.closest("[data-edit-subject]");
         if (editButton) {
           const subject = state.materias.find((item) => String(item.id) === String(editButton.dataset.editSubject));
@@ -330,15 +342,21 @@
         const deleteButton = event.target.closest("[data-delete-subject]");
         if (deleteButton) {
           const id = deleteButton.dataset.deleteSubject;
-          const response = await fetch(`/api/materias/${id}`, { method: "DELETE" });
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
+          deleteButton.disabled = true;
+          try {
+            const response = await fetch(`/api/materias/${id}`, { method: "DELETE" });
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data.detalhes || data.erro || "Não foi possível excluir a matéria.");
+            }
+            saveLocalSubjects(localSubjects().filter((item) => String(item.id) !== String(id)));
+            await loadData();
+          } catch (error) {
             $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
-            $("feedback").textContent = data.detalhes || data.erro || "Não foi possível excluir a matéria.";
-            return;
+            $("feedback").textContent = error.message;
+          } finally {
+            deleteButton.disabled = false;
           }
-          saveLocalSubjects(localSubjects().filter((item) => String(item.id) !== String(id)));
-          await loadData();
           return;
         }
 
@@ -359,6 +377,10 @@
 
       $("subjectForm").addEventListener("submit", async (event) => {
         event.preventDefault();
+        const submitButton = $("subjectSubmit");
+        submitButton.disabled = true;
+        $("feedback").className = "min-h-5 text-sm font-medium text-neutral-600";
+        $("feedback").textContent = $("subjectId").value ? "Atualizando matéria..." : "Salvando matéria...";
         const id = $("subjectId").value || String(Date.now());
         let materia = {
           id,
@@ -375,25 +397,35 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(materia)
           });
-          const data = await response.json();
-          if (response.ok && data.materia) {
-            materia = data.materia;
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.erro || "Não foi possível salvar a matéria.");
+          materia = data.materia || materia;
+        } catch (error) {
+          if (error instanceof TypeError) {
+            const local = localSubjects().filter((item) => String(item.id) !== String(id) && item.nome !== materia.nome);
+            local.push(materia);
+            saveLocalSubjects(local);
+          } else {
+            $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+            $("feedback").textContent = error.message;
+            submitButton.disabled = false;
+            return;
           }
-        } catch {}
-        if (!Number.isFinite(Number(materia.id)) || String(materia.id).length > 10) {
-          const local = localSubjects().filter((item) => String(item.id) !== String(id) && item.nome !== materia.nome);
-          local.push(materia);
-          saveLocalSubjects(local);
         }
         $("subjectForm").reset();
         $("subjectId").value = "";
         $("subjectColor").value = "#2563eb";
         $("cancelSubjectEdit").classList.add("hidden");
         await loadData();
+        $("feedback").className = "min-h-5 text-sm font-medium text-emerald-700";
+        $("feedback").textContent = "Matéria salva.";
+        submitButton.disabled = false;
       });
 
       $("sessionForm").addEventListener("submit", async (event) => {
         event.preventDefault();
+        const submitButton = $("sessionSubmit");
+        submitButton.disabled = true;
         const payload = {
           materia: $("materia").value.trim(),
           tipo_estudo: $("tipo_estudo").value,
@@ -413,12 +445,15 @@
           if (!response.ok) throw new Error(data.erro || "Não foi possível salvar.");
           $("feedback").className = "min-h-5 text-sm font-medium text-emerald-700";
           $("feedback").textContent = data.mensagem || "Sessão salva.";
+          $("materia").value = "";
           $("observacao").value = "";
           saveLocalSessions(mergeSessions(localSessions(), [data.sessao]));
           await loadData();
         } catch (error) {
           $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
           $("feedback").textContent = error.message;
+        } finally {
+          submitButton.disabled = false;
         }
       });
 
@@ -524,6 +559,7 @@
         }
         doc.save(`relatorio-no-meu-ritmo-${new Date().toISOString().slice(0, 10)}.pdf`);
       });
+      clearLegacyQueryString();
       loadData().catch((error) => {
         $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
         $("feedback").textContent = `Erro ao carregar dados: ${error.message}`;

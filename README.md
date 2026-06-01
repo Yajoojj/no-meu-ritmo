@@ -1,30 +1,38 @@
-# No Meu Ritmo!
+# No Meu Ritmo
 
-Aplicacao completa de organizacao de estudos feita para atividade universitaria. O projeto contem backend em Flask, frontend em Flet e uma landing page estatica em HTML com Tailwind CSS.
+No Meu Ritmo e uma aplicacao para organizar estudos, registrar sessoes realizadas e acompanhar o progresso por materia. O projeto foi desenvolvido com backend Flask, API documentada com Swagger, validacao Pydantic, interface web em HTML/Tailwind e frontend Flet mantido para atender aos requisitos da atividade.
+
+Aplicacao em producao: <https://no-meu-ritmo.vercel.app>
+
+Repositorio publico: <https://github.com/Yajoojj/no-meu-ritmo>
+
+## Funcionalidades
+
+- Painel web para uso direto no navegador.
+- CRUD de materias: criar, listar, editar e excluir.
+- Registro de sessoes de estudo com materia, tipo, duracao, foco e observacao.
+- Plano de estudo sugerido com base nas materias e no historico.
+- Indicadores de tempo planejado, tempo registrado, foco medio e quantidade de sessoes.
+- Relatorio em PDF para download.
+- API REST documentada no Swagger.
+- Persistencia com Supabase/Postgres quando configurado.
+- Fallback em memoria/localStorage para manter a aplicacao utilizavel em ambiente local.
 
 ## Requisitos da atividade
 
-- Backend Flask organizado com Blueprints.
-- Pelo menos 2 endpoints GET documentados com Swagger/Docstring.
-- Pelo menos 1 endpoint POST com validacao usando Pydantic.
-- Frontend Flet que lista dados vindos de endpoint GET.
-- Formulario Flet que consome endpoint POST e exibe feedback.
-- Landing page com nome, descricao e instrucoes de execucao.
-- Dados em memoria por padrao, com persistencia opcional no Supabase/Postgres.
-
-## O que o sistema faz
-
-- Lista materias cadastradas.
-- Mostra um plano de estudos para o dia.
-- Registra sessoes de estudo com materia, tipo, duracao, foco e observacao.
-- Gera relatorio em PDF para download.
-- Valida o cadastro com Pydantic.
-- Documenta a API com Swagger.
-- Nao usa dados mockados na interface: materias e plano sao calculados a partir das sessoes reais registradas.
+| Requisito | Implementacao |
+| --- | --- |
+| Backend Flask | `app.py` e pacote `backend/` |
+| Organizacao com Blueprints | `backend/routes/` |
+| 2 endpoints GET documentados | `/api/materias`, `/api/plano-hoje`, `/api/sessoes` |
+| 1 endpoint POST com Pydantic | `/api/sessoes` e `/api/materias` |
+| Frontend Flet consumindo GET e POST | `frontend/main.py` |
+| Landing page HTML + Tailwind | `public/index.html` |
+| Instrucoes de execucao | Este README |
 
 ## Tecnologias
 
-- Python
+- Python 3
 - Flask
 - Flask Blueprints
 - Pydantic
@@ -32,7 +40,83 @@ Aplicacao completa de organizacao de estudos feita para atividade universitaria.
 - Flet
 - HTML
 - Tailwind CSS
-- Supabase/Postgres opcional
+- Supabase/Postgres
+- ReportLab para geracao de PDF
+- Vercel para deploy
+
+## Estrutura do projeto
+
+```text
+.
+|-- app.py
+|-- backend/
+|   |-- __init__.py
+|   |-- data.py
+|   |-- landing.py
+|   |-- schemas.py
+|   |-- storage.py
+|   `-- routes/
+|       |-- materias.py
+|       |-- plano.py
+|       |-- relatorios.py
+|       `-- sessoes.py
+|-- frontend/
+|   `-- main.py
+|-- public/
+|   `-- index.html
+|-- docs/
+|   `-- supabase.sql
+|-- tests/
+|   `-- test_api.py
+|-- requirements.txt
+|-- requirements-dev.txt
+`-- vercel.json
+```
+
+## API
+
+Com o servidor rodando, a documentacao Swagger fica disponivel em:
+
+```text
+/apidocs/
+```
+
+Endpoints principais:
+
+| Metodo | Rota | Descricao |
+| --- | --- | --- |
+| GET | `/api/materias` | Lista materias |
+| GET | `/api/materias/<id>` | Busca uma materia |
+| POST | `/api/materias` | Cria materia |
+| PUT | `/api/materias/<id>` | Atualiza materia |
+| DELETE | `/api/materias/<id>` | Remove materia |
+| GET | `/api/plano-hoje` | Lista sugestao de plano |
+| GET | `/api/sessoes` | Lista sessoes |
+| POST | `/api/sessoes` | Registra sessao |
+| GET | `/api/relatorio.pdf` | Baixa relatorio PDF |
+
+Exemplo de cadastro de materia:
+
+```json
+{
+  "nome": "Programacao Web",
+  "prioridade": "alta",
+  "cor": "#2563eb",
+  "descricao": "APIs, frontend e integracao."
+}
+```
+
+Exemplo de registro de sessao:
+
+```json
+{
+  "materia": "Programacao Web",
+  "tipo_estudo": "projeto",
+  "duracao_minutos": 45,
+  "nivel_foco": 4,
+  "observacao": "Integrei o frontend com a API."
+}
+```
 
 ## Como rodar localmente
 
@@ -62,70 +146,74 @@ python app.py
 
 Acesse:
 
-- Landing page: <http://127.0.0.1:5000/>
+- Aplicacao web: <http://127.0.0.1:5000/>
 - Swagger: <http://127.0.0.1:5000/apidocs/>
-- Materias: <http://127.0.0.1:5000/api/materias>
-- Plano do dia: <http://127.0.0.1:5000/api/plano-hoje>
-- Sessoes: <http://127.0.0.1:5000/api/sessoes>
+- API de materias: <http://127.0.0.1:5000/api/materias>
+- API de sessoes: <http://127.0.0.1:5000/api/sessoes>
 - Relatorio PDF: <http://127.0.0.1:5000/api/relatorio.pdf>
 
-Em outro terminal, rode o frontend:
+Para abrir o frontend Flet:
 
 ```bash
 python frontend/main.py
 ```
 
-## Supabase opcional
+## Configuracao do Supabase
 
-O projeto funciona sem banco, usando memoria/localStorage, como permitido na atividade. Para persistir materias e sessoes no Supabase/Postgres:
+O projeto usa Supabase/Postgres para persistir materias e sessoes quando as variaveis de ambiente estao configuradas.
 
-1. Rode o SQL de `docs/supabase.sql` no SQL Editor do Supabase.
-2. Configure as variaveis:
+Crie as tabelas rodando o script:
 
-```bash
+```text
+docs/supabase.sql
+```
+
+Variaveis necessarias:
+
+```env
 SUPABASE_URL=https://cjdtjvwrikpgzprjhmty.supabase.co
 SUPABASE_KEY=sua_chave_publishable
 ```
 
-Na Vercel, cadastre as mesmas variaveis em Production, Preview e Development.
+Na Vercel, essas variaveis devem estar cadastradas em Production e Development.
 
-Com essas tabelas criadas, o backend usa a Supabase para:
+## Regras de dados
 
-- `GET /api/materias`
-- `POST /api/materias`
-- `PUT /api/materias/<id>`
-- `DELETE /api/materias/<id>`
-- `GET /api/sessoes`
-- `POST /api/sessoes`
-
-## Exemplo de POST
-
-Endpoint:
-
-```text
-POST /api/sessoes
-```
-
-Corpo:
-
-```json
-{
-  "materia": "Programacao Web",
-  "tipo_estudo": "projeto",
-  "duracao_minutos": 45,
-  "nivel_foco": 4,
-  "observacao": "Testei a integracao do Flet com a API."
-}
-```
+- Materias possuem nome, prioridade, cor e descricao.
+- Sessoes ficam vinculadas a uma materia no banco por `materia_id`.
+- O plano do dia e calculado a partir das materias e do tempo registrado.
+- O relatorio em PDF usa os dados retornados pela API.
 
 ## Testes
 
+Execute:
+
 ```bash
-python -m unittest
+python -m unittest -v
 ```
+
+Os testes cobrem:
+
+- CRUD de materias.
+- Listagem sem dados mockados.
+- Criacao de sessao.
+- Validacao de dados invalidos.
+- Geracao de PDF.
 
 ## Deploy
 
-A aplicacao esta preparada para deploy na Vercel usando Flask. A landing page fica na rota principal, a API fica em `/api` e a documentacao Swagger fica em `/apidocs/`.
+O deploy esta configurado para Vercel.
 
-Repositorio publico: <https://github.com/Yajoojj/no-meu-ritmo>
+```bash
+npx vercel deploy --prod
+```
+
+Arquivos relevantes:
+
+- `vercel.json`: configuracao da funcao Python.
+- `.python-version`: versao usada no build da Vercel.
+- `requirements.txt`: dependencias de producao.
+
+## Observacoes
+
+O projeto nao depende de dados mockados para a interface principal. Quando a Supabase esta configurada, a API usa o banco como fonte de dados. Em ambiente local sem banco, a aplicacao ainda funciona com fallback em memoria/localStorage para facilitar testes e apresentacao.
