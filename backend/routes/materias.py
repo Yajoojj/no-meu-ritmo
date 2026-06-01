@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from backend.data import MATERIAS
+from backend.storage import listar_materias as buscar_materias
 
 materias_bp = Blueprint("materias", __name__)
 
@@ -8,13 +8,13 @@ materias_bp = Blueprint("materias", __name__)
 @materias_bp.get("/materias")
 def listar_materias():
     """
-    Lista as matérias cadastradas no organizador.
+    Lista as materias criadas a partir das sessoes registradas.
     ---
     tags:
-      - Matérias
+      - Materias
     responses:
       200:
-        description: Lista de matérias disponíveis para estudo.
+        description: Lista de materias reais derivadas do historico de estudo.
         schema:
           type: array
           items:
@@ -29,4 +29,4 @@ def listar_materias():
               descricao:
                 type: string
     """
-    return jsonify(MATERIAS)
+    return jsonify(buscar_materias())

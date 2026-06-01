@@ -17,8 +17,10 @@ Aplicacao completa de organizacao de estudos feita para atividade universitaria.
 - Lista materias cadastradas.
 - Mostra um plano de estudos para o dia.
 - Registra sessoes de estudo com materia, tipo, duracao, foco e observacao.
+- Gera relatorio em PDF para download.
 - Valida o cadastro com Pydantic.
 - Documenta a API com Swagger.
+- Nao usa dados mockados na interface: materias e plano sao calculados a partir das sessoes reais registradas.
 
 ## Tecnologias
 
@@ -65,6 +67,7 @@ Acesse:
 - Materias: <http://127.0.0.1:5000/api/materias>
 - Plano do dia: <http://127.0.0.1:5000/api/plano-hoje>
 - Sessoes: <http://127.0.0.1:5000/api/sessoes>
+- Relatorio PDF: <http://127.0.0.1:5000/api/relatorio.pdf>
 
 Em outro terminal, rode o frontend:
 

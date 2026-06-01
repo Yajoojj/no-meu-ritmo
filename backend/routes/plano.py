@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-from backend.data import PLANO_HOJE
+from backend.storage import listar_plano_hoje as buscar_plano_hoje
 
 plano_bp = Blueprint("plano", __name__)
 
@@ -8,13 +8,13 @@ plano_bp = Blueprint("plano", __name__)
 @plano_bp.get("/plano-hoje")
 def listar_plano_hoje():
     """
-    Mostra o plano de estudos sugerido para hoje.
+    Mostra um plano de estudos sugerido com base nas sessoes reais.
     ---
     tags:
       - Plano de estudos
     responses:
       200:
-        description: Blocos de estudo sugeridos para o dia.
+        description: Blocos de estudo sugeridos a partir do historico registrado.
         schema:
           type: array
           items:
@@ -31,4 +31,4 @@ def listar_plano_hoje():
               meta:
                 type: string
     """
-    return jsonify(PLANO_HOJE)
+    return jsonify(buscar_plano_hoje())

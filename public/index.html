@@ -6,76 +6,264 @@
     <title>No Meu Ritmo!</title>
     <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body class="bg-zinc-50 text-zinc-950 antialiased">
-    <main class="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8">
-      <nav class="flex items-center justify-between border-b border-zinc-200 pb-5">
-        <a class="text-base font-semibold tracking-tight" href="/">No Meu Ritmo!</a>
-        <div class="flex items-center gap-2">
-          <a class="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 transition hover:bg-white" href="/apidocs/">
-            Swagger
-          </a>
-          <a class="rounded-md bg-zinc-950 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800" href="/api/materias">
-            API
-          </a>
-        </div>
-      </nav>
-
-      <section class="grid flex-1 items-center gap-10 py-12 md:grid-cols-[1.05fr_0.95fr] md:py-16">
+  <body class="bg-neutral-100 text-neutral-950 antialiased">
+    <main class="mx-auto min-h-screen w-full max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+      <header class="mb-5 flex flex-col gap-3 border-b border-neutral-300 pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p class="text-sm font-medium uppercase tracking-[0.18em] text-zinc-500">Organizador de estudos</p>
-          <h1 class="mt-5 max-w-3xl text-5xl font-semibold leading-[1.02] tracking-tight text-zinc-950 md:text-7xl">
-            No Meu Ritmo!
-          </h1>
-          <p class="mt-6 max-w-2xl text-lg leading-8 text-zinc-600">
-            Aplicacao completa para planejar materias, consultar o plano do dia e registrar sessoes de estudo com foco,
-            tempo e observacoes. O backend usa Flask com Blueprints, Swagger e validacao Pydantic; o frontend usa Flet.
-          </p>
-          <div class="mt-8 flex flex-wrap gap-3">
-            <a class="rounded-md bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800" href="/apidocs/">
-              Abrir documentacao
-            </a>
-            <a class="rounded-md border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-white" href="/api/plano-hoje">
-              Ver plano do dia
-            </a>
-          </div>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">Painel de estudos</p>
+          <h1 class="text-2xl font-semibold tracking-tight">No Meu Ritmo!</h1>
         </div>
+        <nav class="flex flex-wrap gap-2">
+          <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/apidocs/">Swagger</a>
+          <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/api/materias">API</a>
+          <a class="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50" href="/api/relatorio.pdf">Baixar PDF</a>
+          <button id="refreshButton" class="rounded-md bg-neutral-950 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800">Atualizar</button>
+        </nav>
+      </header>
 
-        <div class="border border-zinc-200 bg-white p-5 shadow-sm">
-          <div class="flex items-center justify-between border-b border-zinc-100 pb-4">
-            <h2 class="text-lg font-semibold">Requisitos atendidos</h2>
-            <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Pronto</span>
-          </div>
-          <div class="divide-y divide-zinc-100">
-            <div class="py-4">
-              <p class="font-medium">Backend Flask</p>
-              <p class="mt-1 text-sm leading-6 text-zinc-600">Blueprints, dois endpoints GET documentados e um POST validado com Pydantic.</p>
-            </div>
-            <div class="py-4">
-              <p class="font-medium">Frontend Flet</p>
-              <p class="mt-1 text-sm leading-6 text-zinc-600">Tela que consome GET e formulario que envia dados para o POST com feedback.</p>
-            </div>
-            <div class="py-4">
-              <p class="font-medium">Landing Page</p>
-              <p class="mt-1 text-sm leading-6 text-zinc-600">Pagina estatica em HTML com Tailwind, descricao do projeto e instrucoes de execucao.</p>
-            </div>
-          </div>
-        </div>
+      <section class="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Tempo planejado</p>
+          <strong id="plannedMinutes" class="mt-2 block text-3xl font-semibold">0 min</strong>
+        </article>
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Tempo registrado</p>
+          <strong id="doneMinutes" class="mt-2 block text-3xl font-semibold">0 min</strong>
+        </article>
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Foco médio</p>
+          <strong id="avgFocus" class="mt-2 block text-3xl font-semibold">-</strong>
+        </article>
+        <article class="border border-neutral-300 bg-white p-4">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-500">Sessões</p>
+          <strong id="sessionCount" class="mt-2 block text-3xl font-semibold">0</strong>
+        </article>
       </section>
 
-      <section class="grid gap-6 border-t border-zinc-200 py-8 md:grid-cols-3">
-        <div>
-          <h2 class="text-base font-semibold">Backend</h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600">Execute <code class="bg-zinc-200 px-1">python app.py</code> e acesse a API em <code class="bg-zinc-200 px-1">/api</code>.</p>
+      <section class="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <div class="space-y-5">
+          <section class="border border-neutral-300 bg-white p-4">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 class="text-lg font-semibold">Plano de hoje</h2>
+                <p class="text-sm text-neutral-600">Use estes blocos como referência e registre o que realmente estudou.</p>
+              </div>
+            </div>
+            <div id="planList" class="grid gap-3 md:grid-cols-3"></div>
+          </section>
+
+          <section class="border border-neutral-300 bg-white p-4">
+            <h2 class="text-lg font-semibold">Matérias</h2>
+            <div id="subjectList" class="mt-4 grid gap-3 sm:grid-cols-2"></div>
+          </section>
         </div>
-        <div>
-          <h2 class="text-base font-semibold">Frontend</h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600">Em outro terminal, rode <code class="bg-zinc-200 px-1">python frontend/main.py</code>.</p>
-        </div>
-        <div>
-          <h2 class="text-base font-semibold">Dados</h2>
-          <p class="mt-2 text-sm leading-6 text-zinc-600">Funciona em memoria e tambem pode persistir sessoes no Supabase quando configurado.</p>
-        </div>
+
+        <aside class="space-y-5">
+          <section class="border border-neutral-300 bg-white p-4">
+            <h2 class="text-lg font-semibold">Registrar sessão</h2>
+            <form id="sessionForm" class="mt-4 space-y-3">
+              <label class="block">
+                <span class="text-sm font-medium">Matéria</span>
+                <input id="materia" name="materia" required minlength="2" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="Ex: Cálculo, Redes, Programação Web" />
+              </label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="text-sm font-medium">Tipo</span>
+                  <select id="tipo_estudo" name="tipo_estudo" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
+                    <option value="projeto">Projeto</option>
+                    <option value="exercicios">Exercícios</option>
+                    <option value="revisao">Revisão</option>
+                    <option value="leitura">Leitura</option>
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-sm font-medium">Foco</span>
+                  <select id="nivel_foco" name="nivel_foco" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950">
+                    <option value="5">5</option>
+                    <option value="4" selected>4</option>
+                    <option value="3">3</option>
+                    <option value="2">2</option>
+                    <option value="1">1</option>
+                  </select>
+                </label>
+              </div>
+              <label class="block">
+                <span class="text-sm font-medium">Duração em minutos</span>
+                <input id="duracao_minutos" name="duracao_minutos" required type="number" min="1" max="300" value="40" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" />
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium">Observação</span>
+                <textarea id="observacao" name="observacao" rows="3" maxlength="240" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" placeholder="O que você estudou?"></textarea>
+              </label>
+              <button class="w-full rounded-md bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800" type="submit">Salvar sessão</button>
+              <p id="feedback" class="min-h-5 text-sm font-medium"></p>
+            </form>
+          </section>
+
+          <section class="border border-neutral-300 bg-white p-4">
+            <h2 class="text-lg font-semibold">Histórico</h2>
+            <div id="sessionList" class="mt-4 max-h-[430px] space-y-3 overflow-auto pr-1"></div>
+          </section>
+        </aside>
       </section>
+
+      <footer class="mt-6 border-t border-neutral-300 py-4 text-sm text-neutral-600">
+        Projeto Flask + Blueprints + Pydantic + Swagger, com frontend Flet mantido no repositório e painel web para uso direto na Vercel.
+      </footer>
     </main>
+
+    <script>
+      const state = { materias: [], plano: [], sessoes: [] };
+      const $ = (id) => document.getElementById(id);
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;"
+        })[char]);
+      }
+
+      async function getJson(path) {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`Erro ${response.status}`);
+        return response.json();
+      }
+
+      function renderStats() {
+        const planned = state.plano.reduce((total, item) => total + Number(item.duracao_minutos || 0), 0);
+        const done = state.sessoes.reduce((total, item) => total + Number(item.duracao_minutos || 0), 0);
+        const focusValues = state.sessoes.map((item) => Number(item.nivel_foco || 0)).filter(Boolean);
+        const avg = focusValues.length ? (focusValues.reduce((a, b) => a + b, 0) / focusValues.length).toFixed(1) : "-";
+        $("plannedMinutes").textContent = `${planned} min`;
+        $("doneMinutes").textContent = `${done} min`;
+        $("avgFocus").textContent = avg;
+        $("sessionCount").textContent = state.sessoes.length;
+      }
+
+      function renderPlano() {
+        if (!state.plano.length) {
+          $("planList").innerHTML = '<p class="text-sm text-neutral-600 md:col-span-3">Registre uma sessão para gerar sugestões de plano com base no seu histórico real.</p>';
+          return;
+        }
+        $("planList").innerHTML = state.plano.map((item) => `
+          <article class="border border-neutral-200 p-3">
+            <div class="flex items-center justify-between text-sm">
+              <strong>${escapeHtml(item.horario)}</strong>
+              <span class="text-neutral-500">${escapeHtml(item.duracao_minutos)} min</span>
+            </div>
+            <h3 class="mt-3 font-semibold">${escapeHtml(item.materia)}</h3>
+            <p class="mt-1 text-sm text-neutral-600">${escapeHtml(item.meta)}</p>
+            <button class="mt-3 rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium hover:bg-neutral-50" data-plan="${escapeHtml(item.materia)}" data-type="${escapeHtml(item.tipo)}" data-duration="${escapeHtml(item.duracao_minutos)}">Usar no formulário</button>
+          </article>
+        `).join("");
+      }
+
+      function renderMaterias() {
+        if (!state.materias.length) {
+          $("subjectList").innerHTML = '<p class="text-sm text-neutral-600 sm:col-span-2">Nenhuma matéria ainda. Ao salvar uma sessão, a matéria aparece aqui automaticamente.</p>';
+          return;
+        }
+        $("subjectList").innerHTML = state.materias.map((item) => `
+          <article class="border border-neutral-200 p-3">
+            <div class="flex items-center gap-2">
+              <span class="h-3 w-3 rounded-full" style="background:${escapeHtml(item.cor)}"></span>
+              <h3 class="font-semibold">${escapeHtml(item.nome)}</h3>
+              <span class="ml-auto rounded-full bg-neutral-100 px-2 py-1 text-xs text-neutral-600">${escapeHtml(item.prioridade)}</span>
+            </div>
+            <p class="mt-2 text-sm text-neutral-600">${escapeHtml(item.descricao)}</p>
+          </article>
+        `).join("");
+      }
+
+      function renderSessoes() {
+        if (!state.sessoes.length) {
+          $("sessionList").innerHTML = '<p class="text-sm text-neutral-600">Nenhuma sessão registrada ainda.</p>';
+          return;
+        }
+        $("sessionList").innerHTML = [...state.sessoes].reverse().map((item) => `
+          <article class="border border-neutral-200 p-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="font-semibold">${escapeHtml(item.materia || item.nome || "Matéria")}</h3>
+                <p class="text-sm text-neutral-600">${escapeHtml(item.tipo_estudo)} · ${escapeHtml(item.duracao_minutos)} min · foco ${escapeHtml(item.nivel_foco)}</p>
+              </div>
+              <span class="text-xs text-neutral-500">${escapeHtml(item.data_registro || "")}</span>
+            </div>
+            ${item.observacao ? `<p class="mt-2 text-sm text-neutral-700">${escapeHtml(item.observacao)}</p>` : ""}
+          </article>
+        `).join("");
+      }
+
+      function renderAll() {
+        renderStats();
+        renderPlano();
+        renderMaterias();
+        renderSessoes();
+      }
+
+      async function loadData() {
+        $("feedback").textContent = "";
+        const results = await Promise.allSettled([
+          getJson("/api/materias"),
+          getJson("/api/plano-hoje"),
+          getJson("/api/sessoes")
+        ]);
+        state.materias = results[0].status === "fulfilled" ? results[0].value : [];
+        state.plano = results[1].status === "fulfilled" ? results[1].value : [];
+        state.sessoes = results[2].status === "fulfilled" ? results[2].value : [];
+        renderAll();
+        if (results.some((result) => result.status === "rejected")) {
+          $("feedback").className = "min-h-5 text-sm font-medium text-amber-700";
+          $("feedback").textContent = "Alguns dados não carregaram agora. Você ainda pode registrar uma sessão.";
+        }
+      }
+
+      document.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-plan]");
+        if (!button) return;
+        $("materia").value = button.dataset.plan;
+        $("tipo_estudo").value = button.dataset.type || "projeto";
+        $("duracao_minutos").value = button.dataset.duration || 40;
+        $("observacao").focus();
+      });
+
+      $("sessionForm").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = {
+          materia: $("materia").value.trim(),
+          tipo_estudo: $("tipo_estudo").value,
+          duracao_minutos: Number($("duracao_minutos").value),
+          nivel_foco: Number($("nivel_foco").value),
+          observacao: $("observacao").value.trim() || null
+        };
+        $("feedback").className = "min-h-5 text-sm font-medium text-neutral-600";
+        $("feedback").textContent = "Salvando...";
+        try {
+          const response = await fetch("/api/sessoes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.erro || "Não foi possível salvar.");
+          $("feedback").className = "min-h-5 text-sm font-medium text-emerald-700";
+          $("feedback").textContent = data.mensagem || "Sessão salva.";
+          $("observacao").value = "";
+          await loadData();
+        } catch (error) {
+          $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+          $("feedback").textContent = error.message;
+        }
+      });
+
+      $("refreshButton").addEventListener("click", loadData);
+      loadData().catch((error) => {
+        $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+        $("feedback").textContent = `Erro ao carregar dados: ${error.message}`;
+      });
+    </script>
   </body>
 </html>
