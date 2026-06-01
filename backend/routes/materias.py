@@ -10,6 +10,19 @@ from backend.storage import obter_materia as buscar_materia
 
 materias_bp = Blueprint("materias", __name__)
 
+USUARIO_MATERIAS = "aluno"
+SENHA_MATERIAS = "1234"
+
+
+def validar_usuario_materias():
+    auth = request.authorization
+    if auth and auth.username == USUARIO_MATERIAS and auth.password == SENHA_MATERIAS:
+        return None
+
+    return jsonify({"erro": "Usuario ou senha invalidos para acessar as materias."}), 401, {
+        "WWW-Authenticate": 'Basic realm="Materias"'
+    }
+
 
 @materias_bp.get("/materias")
 def listar_materias():
@@ -21,7 +34,12 @@ def listar_materias():
     responses:
       200:
         description: Lista de materias cadastradas pelo usuario.
+      401:
+        description: Usuario ou senha invalidos.
     """
+    erro_login = validar_usuario_materias()
+    if erro_login:
+        return erro_login
     return jsonify(buscar_materias())
 
 
@@ -35,9 +53,15 @@ def detalhar_materia(materia_id: int):
     responses:
       200:
         description: Materia encontrada.
+      401:
+        description: Usuario ou senha invalidos.
       404:
         description: Materia nao encontrada.
     """
+    erro_login = validar_usuario_materias()
+    if erro_login:
+        return erro_login
+
     materia = buscar_materia(materia_id)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
@@ -76,9 +100,15 @@ def criar_materia():
     responses:
       201:
         description: Materia criada com sucesso.
+      401:
+        description: Usuario ou senha invalidos.
       422:
         description: Dados invalidos.
     """
+    erro_login = validar_usuario_materias()
+    if erro_login:
+        return erro_login
+
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -100,11 +130,17 @@ def atualizar_materia(materia_id: int):
     responses:
       200:
         description: Materia atualizada com sucesso.
+      401:
+        description: Usuario ou senha invalidos.
       404:
         description: Materia nao encontrada.
       422:
         description: Dados invalidos.
     """
+    erro_login = validar_usuario_materias()
+    if erro_login:
+        return erro_login
+
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -128,18 +164,16 @@ def excluir_materia(materia_id: int):
     responses:
       200:
         description: Materia removida com sucesso.
+      401:
+        description: Usuario ou senha invalidos.
       404:
         description: Materia nao encontrada.
     """
-    try:
-        materia = remover_materia(materia_id)
-    except RuntimeError:
-        return jsonify(
-            {
-                "erro": "Nao foi possivel excluir esta materia.",
-                "detalhes": "Ela pode ter sessoes vinculadas. Remova as sessoes no banco ou mantenha a materia no historico.",
-            }
-        ), 409
+    erro_login = validar_usuario_materias()
+    if erro_login:
+        return erro_login
+
+    materia = remover_materia(materia_id)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify({"mensagem": "Materia removida com sucesso.", "materia": materia})
