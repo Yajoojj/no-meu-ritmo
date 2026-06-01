@@ -87,6 +87,8 @@ Endpoints principais:
 | --- | --- | --- |
 | GET | `/api/materias` | Lista materias |
 | GET | `/api/materias/<id>` | Busca uma materia |
+| POST | `/api/login` | Autentica e retorna token Bearer |
+| POST | `/api/cadastro-rapido` | Cria usuario demo e retorna token Bearer |
 | POST | `/api/materias` | Cria materia |
 | PUT | `/api/materias/<id>` | Atualiza materia |
 | DELETE | `/api/materias/<id>` | Remove materia |
@@ -172,10 +174,13 @@ Variaveis necessarias:
 
 ```env
 SUPABASE_URL=https://cjdtjvwrikpgzprjhmty.supabase.co
-SUPABASE_KEY=sua_chave_publishable
+SUPABASE_KEY=sb_publishable_RlOAasMh-nqMnO_3d24PpQ_gSHZI0nL
+DEMO_MODE=1
+API_USERNAME=aluno
+API_PASSWORD=1234
 ```
 
-Na Vercel, essas variaveis devem estar cadastradas em Production e Development.
+Na Vercel, essas variaveis devem estar cadastradas em Production, Preview e Development.
 
 ## Regras de dados
 
@@ -206,6 +211,16 @@ O deploy esta configurado para Vercel.
 
 ```bash
 npx vercel deploy --prod
+```
+
+Para gravar as variaveis antes do deploy:
+
+```bash
+vercel env add SUPABASE_URL production
+vercel env add SUPABASE_KEY production
+vercel env add DEMO_MODE production
+vercel env add API_USERNAME production
+vercel env add API_PASSWORD production
 ```
 
 Arquivos relevantes:

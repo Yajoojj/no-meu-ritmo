@@ -11,6 +11,7 @@ work/
 
 .vercel
 .env*
+!.env.example
 package-lock.json
 pyproject.toml
 uv.lock

@@ -19,8 +19,8 @@ AUTH_SCRIPT = """
 
     window.noMeuRitmoCurrentUser = getUser;
 
-    function setAccess(username, password) {
-      sessionStorage.setItem(AUTH_KEY, btoa(username + ":" + password));
+    function setAccess(username, token) {
+      sessionStorage.setItem(AUTH_KEY, token);
       sessionStorage.setItem(USER_KEY, username);
     }
 
@@ -106,7 +106,11 @@ AUTH_SCRIPT = """
             throw new Error(data.erro || "Não foi possível continuar.");
           }
 
-          setAccess(username, password);
+          if (!data.token) {
+            throw new Error("Login sem token retornado pela API.");
+          }
+
+          setAccess(data.usuario?.username || username, data.token);
           closeOverlay();
           await window.loadData?.();
         } catch (error) {
@@ -136,7 +140,7 @@ AUTH_SCRIPT = """
       const headers = new Headers(options.headers || {});
 
       if (needsLogin && getToken()) {
-        headers.set("Authorization", "Basic " + getToken());
+        headers.set("Authorization", "Bearer " + getToken());
       }
 
       const response = await originalFetch(resource, { ...options, headers });

@@ -1,10 +1,11 @@
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
+from backend.auth import gerar_token
+from backend.auth import obter_usuario_autenticado
 from backend.auth import usuario_atual_ou_erro
 from backend.schemas import MateriaEntrada
 from backend.storage import autenticar_usuario
-from backend.storage import obter_usuario_autenticado
 from backend.storage import atualizar_materia as salvar_atualizacao_materia
 from backend.storage import cadastrar_usuario
 from backend.storage import criar_materia as salvar_materia
@@ -28,6 +29,33 @@ def validar_usuario_materias():
 
 @materias_bp.post("/cadastro-rapido")
 def cadastro_rapido():
+    """
+    Cria um usuario simples para demonstracao e retorna token de acesso.
+    ---
+    tags:
+      - Autenticacao
+    parameters:
+      - in: body
+        name: usuario
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: aluno
+            password:
+              type: string
+              example: "1234"
+    responses:
+      201:
+        description: Cadastro criado com sucesso e token retornado.
+      422:
+        description: Usuario invalido ou ja cadastrado.
+    """
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -36,11 +64,39 @@ def cadastro_rapido():
     if erro:
         return jsonify({"erro": erro}), 422
 
-    return jsonify({"mensagem": "Cadastro criado com sucesso.", "usuario": usuario}), 201
+    token = gerar_token(usuario)
+    return jsonify({"mensagem": "Cadastro criado com sucesso.", "usuario": usuario, "token": token}), 201
 
 
 @materias_bp.post("/login")
 def login():
+    """
+    Autentica o usuario e retorna um token Bearer.
+    ---
+    tags:
+      - Autenticacao
+    parameters:
+      - in: body
+        name: credenciais
+        required: true
+        schema:
+          type: object
+          required:
+            - username
+            - password
+          properties:
+            username:
+              type: string
+              example: aluno
+            password:
+              type: string
+              example: "1234"
+    responses:
+      200:
+        description: Login realizado com sucesso.
+      401:
+        description: Usuario ou senha invalidos.
+    """
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -51,7 +107,8 @@ def login():
     if not usuario:
         return jsonify({"erro": "Usuario ou senha invalidos."}), 401
 
-    return jsonify({"mensagem": "Login realizado com sucesso.", "usuario": usuario})
+    token = gerar_token(usuario)
+    return jsonify({"mensagem": "Login realizado com sucesso.", "usuario": usuario, "token": token})
 
 
 @materias_bp.get("/materias")

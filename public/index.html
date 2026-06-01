@@ -335,10 +335,14 @@
           getJson("/api/plano-hoje"),
           getJson("/api/sessoes")
         ]);
+        const loadedRemoteSubjects = results[0].status === "fulfilled";
+        const loadedRemoteSessions = results[2].status === "fulfilled";
+        if (loadedRemoteSubjects) saveLocalSubjects([]);
+        if (loadedRemoteSessions) saveLocalSessions([]);
         const apiSessions = results[2].status === "fulfilled" ? results[2].value : [];
-        state.sessoes = mergeSessions(apiSessions, localSessions());
+        state.sessoes = mergeSessions(apiSessions, loadedRemoteSessions ? [] : localSessions());
         const apiSubjects = results[0].status === "fulfilled" ? results[0].value : [];
-        state.materias = mergeSubjects(apiSubjects, usingRemoteSubjects(apiSubjects) ? [] : localSubjects(), state.sessoes);
+        state.materias = mergeSubjects(apiSubjects, loadedRemoteSubjects ? [] : localSubjects(), state.sessoes);
         state.plano = buildPlan(state.materias);
         renderAll();
         if (results.some((result) => result.status === "rejected")) {
@@ -474,7 +478,6 @@
           $("feedback").textContent = data.mensagem || "Sessão salva.";
           $("materia").value = "";
           $("observacao").value = "";
-          saveLocalSessions(mergeSessions(localSessions(), [data.sessao]));
           await loadData();
         } catch (error) {
           $("feedback").className = "min-h-5 text-sm font-medium text-red-700";

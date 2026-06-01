@@ -33,6 +33,14 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
         token = b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
         return {"Authorization": f"Basic {token}"}
 
+    def test_login_retorna_token_bearer(self):
+        login = self.client.post("/api/login", json={"username": "aluno", "password": "1234"})
+
+        self.assertEqual(login.status_code, 200)
+        token = login.get_json()["token"]
+        resposta = self.client.get("/api/materias", headers={"Authorization": f"Bearer {token}"})
+        self.assertEqual(resposta.status_code, 200)
+
     def test_lista_materias_sem_mock(self):
         resposta = self.client.get("/api/materias")
         self.assertEqual(resposta.status_code, 200)
@@ -78,6 +86,35 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
 
         self.assertEqual(materias[0]["nome"], "Programacao Web")
         self.assertEqual(plano[0]["materia"], "Programacao Web")
+
+    def test_renomear_materia_atualiza_sessoes_locais(self):
+        criada = self.client.post(
+            "/api/materias",
+            json={
+                "nome": "Programacao Web",
+                "prioridade": "media",
+                "cor": "#2563eb",
+                "descricao": "Conteudo inicial.",
+            },
+        )
+        materia = criada.get_json()["materia"]
+        self.registrar_sessao()
+
+        resposta = self.client.put(
+            f"/api/materias/{materia['id']}",
+            json={
+                "nome": "Programacao Web II",
+                "prioridade": "media",
+                "cor": "#2563eb",
+                "descricao": "Conteudo atualizado.",
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200)
+        materias = self.client.get("/api/materias").get_json()
+        sessoes = self.client.get("/api/sessoes").get_json()
+        self.assertEqual([item["nome"] for item in materias], ["Programacao Web II"])
+        self.assertEqual(sessoes[0]["materia"], "Programacao Web II")
 
     def test_exclui_materia_criada_por_sessao(self):
         self.registrar_sessao()

@@ -240,6 +240,7 @@ def obter_materia(materia_id: int, usuario: dict | None = None):
 
 def criar_materia(dados: dict, usuario: dict | None = None):
     materia = dict(dados)
+    materia["descricao"] = materia.get("descricao") or ""
     cliente = cliente_supabase()
     if cliente is not None:
         try:
@@ -278,8 +279,15 @@ def atualizar_materia(materia_id: int, dados: dict, usuario: dict | None = None)
     materia = obter_materia(materia_id, usuario)
     if materia is None:
         return None
+    nome_anterior = materia.get("nome")
     materia.update(dados)
     materia["id"] = materia_id
+    novo_nome = materia.get("nome")
+    username = usuario_username(usuario)
+    if nome_anterior and novo_nome and nome_anterior != novo_nome:
+        for sessao in SESSOES:
+            if sessao.get("materia") == nome_anterior and sessao.get("usuario") == username:
+                sessao["materia"] = novo_nome
     return materia
 
 
@@ -451,7 +459,7 @@ def obter_ou_criar_materia_por_nome(nome: str, usuario: dict | None = None):
                 "nome": nome,
                 "prioridade": "media",
                 "cor": cor_por_nome(nome),
-                "descricao": None,
+                "descricao": "",
             },
             usuario,
         )
@@ -474,7 +482,7 @@ def obter_ou_criar_materia_por_nome(nome: str, usuario: dict | None = None):
                 "nome": nome,
                 "prioridade": "media",
                 "cor": cor_por_nome(nome),
-                "descricao": None,
+                "descricao": "",
                 "usuario_id": usuario_id(usuario),
             }
         )
