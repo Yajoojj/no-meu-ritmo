@@ -1,47 +1,67 @@
 from pathlib import Path
 
+AUTH_MARKER = "no-meu-ritmo-access-overlay"
+
 AUTH_SCRIPT = """
-<script>
+<script id="no-meu-ritmo-access-overlay">
   (() => {
     const AUTH_KEY = "no-meu-ritmo-auth";
+    const USER_KEY = "no-meu-ritmo-user";
     const originalFetch = window.fetch.bind(window);
 
     function getToken() {
       return sessionStorage.getItem(AUTH_KEY) || "";
     }
 
-    function saveToken(usuario, senha) {
-      sessionStorage.setItem(AUTH_KEY, btoa(`${usuario}:${senha}`));
+    function setAccess(username, password) {
+      sessionStorage.setItem(AUTH_KEY, btoa(username + ":" + password));
+      sessionStorage.setItem(USER_KEY, username);
     }
 
-    function clearToken() {
+    function clearAccess() {
       sessionStorage.removeItem(AUTH_KEY);
+      sessionStorage.removeItem(USER_KEY);
     }
 
-    function showOverlay() {
+    function closeOverlay() {
+      const overlay = document.getElementById("loginOverlay");
+      if (overlay) overlay.remove();
+      document.body.classList.remove("overflow-hidden");
+    }
+
+    function showOverlay(message = "") {
       if (document.getElementById("loginOverlay")) return;
 
+      document.body.classList.add("overflow-hidden");
       const overlay = document.createElement("section");
       overlay.id = "loginOverlay";
-      overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 px-4";
+      overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 px-4 backdrop-blur-sm";
       overlay.innerHTML = `
-        <div class="w-full max-w-md border border-neutral-300 bg-white p-6 shadow-xl">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">Acesso</p>
-          <h2 class="mt-1 text-2xl font-semibold">No Meu Ritmo!</h2>
-          <p class="mt-2 text-sm text-neutral-600">Entre ou crie um cadastro rápido para acessar suas matérias.</p>
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-2xl">
+          <div class="bg-neutral-950 px-6 py-5 text-white">
+            <p class="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400">Acesso ao painel</p>
+            <h2 class="mt-2 text-2xl font-semibold">No Meu Ritmo!</h2>
+            <p class="mt-2 text-sm text-neutral-300">Entre ou crie um cadastro rápido para acessar suas matérias.</p>
+          </div>
 
-          <form id="loginForm" class="mt-5 space-y-3">
+          <form id="loginForm" class="space-y-4 p-6">
             <label class="block">
               <span class="text-sm font-medium">Usuário</span>
-              <input id="loginUser" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" value="aluno" minlength="3" required />
+              <input id="loginUser" autocomplete="username" class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" value="aluno" minlength="3" required />
             </label>
             <label class="block">
               <span class="text-sm font-medium">Senha</span>
-              <input id="loginPass" type="password" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" value="1234" minlength="4" required />
+              <input id="loginPass" autocomplete="current-password" type="password" class="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" value="1234" minlength="4" required />
             </label>
-            <p id="loginMsg" class="min-h-5 text-sm font-medium"></p>
-            <button class="w-full rounded-md bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800" type="submit">Entrar</button>
-            <button id="signupButton" class="w-full rounded-md border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold hover:bg-neutral-50" type="button">Criar cadastro rápido</button>
+
+            <p id="loginMsg" class="min-h-5 text-sm font-medium">${message}</p>
+
+            <div class="grid gap-2 sm:grid-cols-2">
+              <button id="loginButton" class="rounded-lg bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400" type="submit">Entrar</button>
+              <button id="signupButton" class="rounded-lg border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold hover:bg-neutral-50 disabled:cursor-not-allowed disabled:bg-neutral-100" type="button">Cadastrar</button>
+            </div>
+
+            <p class="text-xs leading-relaxed text-neutral-500">Cadastro rápido para demonstração acadêmica. Use um usuário com pelo menos 3 caracteres e senha com pelo menos 4.</p>
           </form>
         </div>
       `;
@@ -50,38 +70,55 @@ AUTH_SCRIPT = """
       const userInput = document.getElementById("loginUser");
       const passInput = document.getElementById("loginPass");
       const msg = document.getElementById("loginMsg");
+      const loginButton = document.getElementById("loginButton");
+      const signupButton = document.getElementById("signupButton");
 
-      async function enviar(url, texto) {
-        const usuario = userInput.value.trim();
-        const senha = passInput.value;
-        msg.className = "min-h-5 text-sm font-medium text-neutral-600";
-        msg.textContent = texto;
+      async function submitAccess(url, loadingText) {
+        const username = userInput.value.trim();
+        const password = passInput.value;
 
-        const response = await originalFetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: usuario, password: senha })
-        });
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
+        if (username.length < 3 || password.length < 4) {
           msg.className = "min-h-5 text-sm font-medium text-red-700";
-          msg.textContent = data.erro || "Não foi possível continuar.";
+          msg.textContent = "Informe usuário e senha válidos.";
           return;
         }
 
-        saveToken(usuario, senha);
-        overlay.remove();
-        if (window.loadData) window.loadData();
+        loginButton.disabled = true;
+        signupButton.disabled = true;
+        msg.className = "min-h-5 text-sm font-medium text-neutral-600";
+        msg.textContent = loadingText;
+
+        try {
+          const response = await originalFetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password })
+          });
+          const data = await response.json().catch(() => ({}));
+
+          if (!response.ok) {
+            throw new Error(data.erro || "Não foi possível continuar.");
+          }
+
+          setAccess(username, password);
+          closeOverlay();
+          await window.loadData?.();
+        } catch (error) {
+          msg.className = "min-h-5 text-sm font-medium text-red-700";
+          msg.textContent = error.message;
+        } finally {
+          loginButton.disabled = false;
+          signupButton.disabled = false;
+        }
       }
 
       document.getElementById("loginForm").addEventListener("submit", (event) => {
         event.preventDefault();
-        enviar("/api/login", "Entrando...");
+        submitAccess("/api/login", "Entrando...");
       });
 
-      document.getElementById("signupButton").addEventListener("click", () => {
-        enviar("/api/cadastro-rapido", "Criando cadastro...");
+      signupButton.addEventListener("click", () => {
+        submitAccess("/api/cadastro-rapido", "Criando cadastro...");
       });
     }
 
@@ -91,14 +128,14 @@ AUTH_SCRIPT = """
       const headers = new Headers(options.headers || {});
 
       if (needsLogin && getToken()) {
-        headers.set("Authorization", `Basic ${getToken()}`);
+        headers.set("Authorization", "Basic " + getToken());
       }
 
       const response = await originalFetch(resource, { ...options, headers });
 
       if (needsLogin && response.status === 401) {
-        clearToken();
-        showOverlay();
+        clearAccess();
+        showOverlay("Faça login para continuar.");
       }
 
       return response;
@@ -113,8 +150,8 @@ AUTH_SCRIPT = """
         button.className = "rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50";
         button.textContent = "Sair";
         button.addEventListener("click", () => {
-          clearToken();
-          showOverlay();
+          clearAccess();
+          showOverlay("Você saiu da conta.");
         });
         nav.appendChild(button);
       }
@@ -137,8 +174,8 @@ def carregar_landing() -> str:
     for index_html in candidates:
         if index_html.exists():
             html = index_html.read_text(encoding="utf-8")
-            if "no-meu-ritmo-auth" not in html:
-                html = html.replace("<script>", f"{AUTH_SCRIPT}\n    <script>", 1)
+            if AUTH_MARKER not in html:
+                html = html.replace("<script>", AUTH_SCRIPT + "\n    <script>", 1)
             return html
 
     return (
