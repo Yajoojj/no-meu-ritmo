@@ -52,18 +52,20 @@ def login():
 
 @materias_bp.get("/materias")
 def listar_materias():
-    erro_login = validar_usuario_materias()
-    if erro_login:
-        return erro_login
+    """
+    Lista as materias cadastradas e seus totais de estudo.
+    ---
+    tags:
+      - Materias
+    responses:
+      200:
+        description: Lista de materias cadastradas, incluindo totais calculados a partir das sessoes.
+    """
     return jsonify(buscar_materias())
 
 
 @materias_bp.get("/materias/<int:materia_id>")
 def detalhar_materia(materia_id: int):
-    erro_login = validar_usuario_materias()
-    if erro_login:
-        return erro_login
-
     materia = buscar_materia(materia_id)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
@@ -72,10 +74,6 @@ def detalhar_materia(materia_id: int):
 
 @materias_bp.post("/materias")
 def criar_materia():
-    erro_login = validar_usuario_materias()
-    if erro_login:
-        return erro_login
-
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -89,10 +87,6 @@ def criar_materia():
 
 @materias_bp.put("/materias/<int:materia_id>")
 def atualizar_materia(materia_id: int):
-    erro_login = validar_usuario_materias()
-    if erro_login:
-        return erro_login
-
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -108,10 +102,6 @@ def atualizar_materia(materia_id: int):
 
 @materias_bp.delete("/materias/<int:materia_id>")
 def excluir_materia(materia_id: int):
-    erro_login = validar_usuario_materias()
-    if erro_login:
-        return erro_login
-
     materia = remover_materia(materia_id)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404

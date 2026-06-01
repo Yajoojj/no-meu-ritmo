@@ -1,41 +1,41 @@
-# Roteiro do vídeo - No Meu Ritmo!
+# Roteiro do video - No Meu Ritmo!
 
-Tempo sugerido: até 3 minutos.
+Tempo sugerido: ate 3 minutos.
 
 ## 1. Landing page
 
-Abrir a página inicial e falar:
+Abrir `http://127.0.0.1:5000/` e falar:
 
-"Esse é o No Meu Ritmo!, um organizador de estudos simples que eu fiz para controlar matérias, plano do dia e sessões de estudo. A landing page apresenta o objetivo do projeto, as tecnologias usadas e como rodar a aplicação."
+"Esse e o No Meu Ritmo!, uma aplicacao para organizar estudos, cadastrar materias, registrar sessoes e acompanhar o progresso. A pagina inicial apresenta o projeto, permite acessar o Swagger, abrir a API e usar o painel feito com HTML e Tailwind."
 
-## 2. Aplicação em Flet
+## 2. Aplicacao em Flet
 
-Abrir o app em Flet e falar:
+Abrir o Flet com `python frontend/main.py` e falar:
 
-"Aqui no aplicativo eu consigo ver as matérias cadastradas e o plano de estudos sugerido para hoje. Esses dados vêm da API Flask pelos endpoints GET."
+"Aqui esta a interface em Flet. Ela consome os endpoints GET do backend Flask para listar as materias e o plano de estudos do dia."
 
-## 3. Formulário
+## 3. Formulario
 
-Preencher o formulário e falar:
+Preencher o formulario do Flet e falar:
 
-"Agora vou registrar uma sessão de estudo. Eu informo a matéria, o tipo de estudo, a duração, o nível de foco e uma observação. Quando salvo, o Flet envia esses dados para o endpoint POST da API."
+"Agora vou registrar uma sessao de estudo. Eu informo a materia, o tipo de estudo, a duracao, o nivel de foco e uma observacao. Ao salvar, o Flet envia esses dados para o endpoint POST `/api/sessoes`."
 
 Depois de salvar:
 
-"A mensagem de sucesso aparece na tela, mostrando que o cadastro foi recebido e validado."
+"A mensagem de sucesso aparece na tela, indicando que a API recebeu os dados e que a validacao com Pydantic passou corretamente."
 
 ## 4. Swagger
 
-Abrir `/apidocs/` e falar:
+Abrir `http://127.0.0.1:5000/apidocs/` e falar:
 
-"Aqui está o Swagger da API. Os endpoints foram documentados com docstrings. Temos os GETs de matérias e plano do dia, e o POST de sessões com validação usando Pydantic."
+"Aqui esta o Swagger da API. O projeto usa Flask com Blueprints, e os endpoints estao documentados por docstrings. Vou mostrar os GETs `/api/materias`, `/api/sessoes` e `/api/plano-hoje`, alem do POST `/api/sessoes`."
 
-## 5. Endpoints
+## 5. Endpoints funcionando
 
-Testar pelo Swagger:
+Testar pelo Swagger ou pelo navegador:
 
-"Vou executar o GET de matérias, depois o GET do plano de hoje. Por fim, vou testar o POST enviando uma sessão de estudo em JSON. A API retorna a sessão criada com status de sucesso."
+"Primeiro executo o GET de materias para ver a lista cadastrada. Depois executo o GET do plano de hoje, que monta uma sugestao com base nos dados registrados. Por fim, testo o POST enviando uma sessao em JSON e a API retorna a sessao criada com status de sucesso."
 
 Fechamento:
 
-"Esse foi o No Meu Ritmo!, feito com Flask, Flet e Tailwind, usando dados em memória como permitido na atividade."
+"Esse foi o No Meu Ritmo!, uma aplicacao completa com backend Flask, frontend Flet e landing page em HTML com Tailwind. O codigo esta no repositorio do GitHub e a gravacao mostra a aplicacao funcionando ao vivo."
