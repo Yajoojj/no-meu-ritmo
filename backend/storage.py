@@ -10,6 +10,7 @@ load_dotenv(".env.local")
 load_dotenv()
 
 TABELA_SESSOES = "sessoes_estudo"
+TABELA_MATERIAS = "materias"
 
 
 @lru_cache(maxsize=1)
@@ -36,14 +37,31 @@ def listar_sessoes():
         return SESSOES
 
     try:
-        resposta = cliente.table(TABELA_SESSOES).select("*").order("id", desc=False).execute()
+        resposta = (
+            cliente.table(TABELA_SESSOES)
+            .select("*, materias(nome)")
+            .order("id", desc=False)
+            .execute()
+        )
     except Exception:
         return SESSOES
 
-    return resposta.data or SESSOES
+    dados = resposta.data or []
+    return [normalizar_sessao(item) for item in dados] or SESSOES
 
 
 def listar_materias():
+    cliente = cliente_supabase()
+    materias_base = []
+    if cliente is not None:
+        try:
+            resposta = cliente.table(TABELA_MATERIAS).select("*").order("id", desc=False).execute()
+            materias_base = resposta.data or []
+        except Exception:
+            materias_base = MATERIAS
+    else:
+        materias_base = MATERIAS
+
     materias = {
         materia["nome"]: {
             **materia,
@@ -81,17 +99,49 @@ def listar_materias():
 
 
 def obter_materia(materia_id: int):
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = cliente.table(TABELA_MATERIAS).select("*").eq("id", materia_id).limit(1).execute()
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            pass
+
     return next((materia for materia in MATERIAS if materia["id"] == materia_id), None)
 
 
 def criar_materia(dados: dict):
     materia = dict(dados)
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = cliente.table(TABELA_MATERIAS).insert(materia).execute()
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            pass
+
     materia["id"] = proximo_id_materia()
     MATERIAS.append(materia)
     return materia
 
 
 def atualizar_materia(materia_id: int, dados: dict):
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = (
+                cliente.table(TABELA_MATERIAS)
+                .update(dict(dados))
+                .eq("id", materia_id)
+                .execute()
+            )
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            pass
+
     materia = obter_materia(materia_id)
     if materia is None:
         return None
@@ -101,6 +151,15 @@ def atualizar_materia(materia_id: int, dados: dict):
 
 
 def excluir_materia(materia_id: int):
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            pass
+
     materia = obter_materia(materia_id)
     if materia is None:
         return None
@@ -139,14 +198,25 @@ def registrar_sessao(sessao: dict) -> dict:
         return sessao
 
     try:
-        resposta = cliente.table(TABELA_SESSOES).insert(sessao).execute()
+        materia = obter_ou_criar_materia_por_nome(sessao["materia"])
+        payload = {
+            "materia_id": materia["id"],
+            "tipo_estudo": sessao["tipo_estudo"],
+            "duracao_minutos": sessao["duracao_minutos"],
+            "nivel_foco": sessao["nivel_foco"],
+            "observacao": sessao.get("observacao"),
+            "data_registro": sessao["data_registro"],
+        }
+        resposta = cliente.table(TABELA_SESSOES).insert(payload).execute()
     except Exception:
         sessao["id"] = proximo_id_sessao()
         SESSOES.append(sessao)
         return sessao
 
     if resposta.data:
-        return resposta.data[0]
+        salvo = resposta.data[0]
+        salvo["materia"] = sessao["materia"]
+        return normalizar_sessao(salvo)
     return sessao
 
 
@@ -154,3 +224,44 @@ def cor_por_nome(nome: str) -> str:
     cores = ["#2563eb", "#16a34a", "#dc2626", "#9333ea", "#0f766e", "#ca8a04"]
     indice = sum(ord(char) for char in nome) % len(cores)
     return cores[indice]
+
+
+def obter_ou_criar_materia_por_nome(nome: str):
+    cliente = cliente_supabase()
+    if cliente is None:
+        existente = next((materia for materia in MATERIAS if materia["nome"] == nome), None)
+        if existente:
+            return existente
+        return criar_materia(
+            {
+                "nome": nome,
+                "prioridade": "media",
+                "cor": cor_por_nome(nome),
+                "descricao": None,
+            }
+        )
+
+    resposta = cliente.table(TABELA_MATERIAS).select("*").eq("nome", nome).limit(1).execute()
+    if resposta.data:
+        return resposta.data[0]
+
+    criado = cliente.table(TABELA_MATERIAS).insert(
+        {
+            "nome": nome,
+            "prioridade": "media",
+            "cor": cor_por_nome(nome),
+            "descricao": None,
+        }
+    ).execute()
+    return criado.data[0]
+
+
+def normalizar_sessao(sessao: dict):
+    item = dict(sessao)
+    materia = item.get("materia")
+    if isinstance(materia, dict):
+        item["materia"] = materia.get("nome", "")
+    elif not item.get("materia") and isinstance(item.get("materias"), dict):
+        item["materia"] = item["materias"].get("nome", "")
+    item.pop("materias", None)
+    return item

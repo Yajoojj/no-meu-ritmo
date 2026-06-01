@@ -299,7 +299,8 @@
         ]);
         const apiSessions = results[2].status === "fulfilled" ? results[2].value : [];
         state.sessoes = mergeSessions(apiSessions, localSessions());
-        state.materias = mergeSubjects([], localSubjects(), state.sessoes);
+        const apiSubjects = results[0].status === "fulfilled" ? results[0].value : [];
+        state.materias = mergeSubjects(apiSubjects, localSubjects(), state.sessoes);
         state.plano = buildPlan(state.materias);
         renderAll();
         if (results.some((result) => result.status === "rejected")) {
@@ -349,23 +350,29 @@
       $("subjectForm").addEventListener("submit", async (event) => {
         event.preventDefault();
         const id = $("subjectId").value || String(Date.now());
-        const materia = {
+        let materia = {
           id,
           nome: $("subjectName").value.trim(),
           prioridade: $("subjectPriority").value,
           cor: $("subjectColor").value,
           descricao: $("subjectDescription").value.trim() || ""
         };
-        const local = localSubjects().filter((item) => String(item.id) !== String(id));
-        local.push(materia);
-        saveLocalSubjects(local);
         const method = $("subjectId").value ? "PUT" : "POST";
         const path = $("subjectId").value ? `/api/materias/${id}` : "/api/materias";
-        fetch(path, {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(materia)
-        }).catch(() => {});
+        try {
+          const response = await fetch(path, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(materia)
+          });
+          const data = await response.json();
+          if (response.ok && data.materia) {
+            materia = data.materia;
+          }
+        } catch {}
+        const local = localSubjects().filter((item) => String(item.id) !== String(id) && item.nome !== materia.nome);
+        local.push(materia);
+        saveLocalSubjects(local);
         $("subjectForm").reset();
         $("subjectId").value = "";
         $("subjectColor").value = "#2563eb";

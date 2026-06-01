@@ -77,7 +77,7 @@ python frontend/main.py
 
 ## Supabase opcional
 
-O projeto funciona sem banco, usando memoria, como permitido na atividade. Para persistir as sessoes no Supabase/Postgres:
+O projeto funciona sem banco, usando memoria/localStorage, como permitido na atividade. Para persistir materias e sessoes no Supabase/Postgres:
 
 1. Rode o SQL de `docs/supabase.sql` no SQL Editor do Supabase.
 2. Configure as variaveis:
@@ -88,6 +88,15 @@ SUPABASE_KEY=sua_chave_publishable
 ```
 
 Na Vercel, cadastre as mesmas variaveis em Production, Preview e Development.
+
+Com essas tabelas criadas, o backend usa a Supabase para:
+
+- `GET /api/materias`
+- `POST /api/materias`
+- `PUT /api/materias/<id>`
+- `DELETE /api/materias/<id>`
+- `GET /api/sessoes`
+- `POST /api/sessoes`
 
 ## Exemplo de POST
 
