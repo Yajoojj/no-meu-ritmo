@@ -1,8 +1,10 @@
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
+from backend.auth import usuario_atual_ou_erro
 from backend.schemas import MateriaEntrada
 from backend.storage import autenticar_usuario
+from backend.storage import obter_usuario_autenticado
 from backend.storage import atualizar_materia as salvar_atualizacao_materia
 from backend.storage import cadastrar_usuario
 from backend.storage import criar_materia as salvar_materia
@@ -45,10 +47,11 @@ def login():
 
     username = dados.get("username", "")
     password = dados.get("password", "")
-    if not autenticar_usuario(username, password):
+    usuario = obter_usuario_autenticado(username, password)
+    if not usuario:
         return jsonify({"erro": "Usuario ou senha invalidos."}), 401
 
-    return jsonify({"mensagem": "Login realizado com sucesso.", "usuario": {"username": username}})
+    return jsonify({"mensagem": "Login realizado com sucesso.", "usuario": usuario})
 
 
 @materias_bp.get("/materias")
@@ -62,12 +65,18 @@ def listar_materias():
       200:
         description: Lista de materias cadastradas, incluindo totais calculados a partir das sessoes.
     """
-    return jsonify(buscar_materias())
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+    return jsonify(buscar_materias(usuario))
 
 
 @materias_bp.get("/materias/<int:materia_id>")
 def detalhar_materia(materia_id: int):
-    materia = buscar_materia(materia_id)
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+    materia = buscar_materia(materia_id, usuario)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify(materia)
@@ -75,6 +84,9 @@ def detalhar_materia(materia_id: int):
 
 @materias_bp.post("/materias")
 def criar_materia():
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -82,12 +94,15 @@ def criar_materia():
         entrada = MateriaEntrada.model_validate(dados)
     except ValidationError as erro:
         return jsonify({"erro": "Dados invalidos.", "detalhes": erro.errors()}), 422
-    materia = salvar_materia(entrada.model_dump())
+    materia = salvar_materia(entrada.model_dump(), usuario)
     return jsonify({"mensagem": "Materia criada com sucesso.", "materia": materia}), 201
 
 
 @materias_bp.put("/materias/<int:materia_id>")
 def atualizar_materia(materia_id: int):
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -95,7 +110,7 @@ def atualizar_materia(materia_id: int):
         entrada = MateriaEntrada.model_validate(dados)
     except ValidationError as erro:
         return jsonify({"erro": "Dados invalidos.", "detalhes": erro.errors()}), 422
-    materia = salvar_atualizacao_materia(materia_id, entrada.model_dump())
+    materia = salvar_atualizacao_materia(materia_id, entrada.model_dump(), usuario)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify({"mensagem": "Materia atualizada com sucesso.", "materia": materia})
@@ -103,7 +118,10 @@ def atualizar_materia(materia_id: int):
 
 @materias_bp.delete("/materias/<int:materia_id>")
 def excluir_materia(materia_id: int):
-    materia = remover_materia(materia_id)
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+    materia = remover_materia(materia_id, usuario)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify({"mensagem": "Materia removida com sucesso.", "materia": materia})
@@ -111,7 +129,10 @@ def excluir_materia(materia_id: int):
 
 @materias_bp.delete("/materias-por-nome/<path:nome>")
 def excluir_materia_por_nome(nome: str):
-    materia = remover_materia_por_nome(nome)
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+    materia = remover_materia_por_nome(nome, usuario)
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify({"mensagem": "Materia removida com sucesso.", "materia": materia})

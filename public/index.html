@@ -141,31 +141,38 @@
     <script>
       const state = { materias: [], plano: [], sessoes: [] };
       const $ = (id) => document.getElementById(id);
-      const storageKey = "no-meu-ritmo-sessoes";
-      const subjectStorageKey = "no-meu-ritmo-materias";
+
+      function currentUserKey() {
+        const user = window.noMeuRitmoCurrentUser?.() || "sem-login";
+        return user.replace(/[^a-z0-9_-]/gi, "_").toLowerCase();
+      }
+
+      function storageKey(kind) {
+        return `no-meu-ritmo-${currentUserKey()}-${kind}`;
+      }
 
       function localSessions() {
         try {
-          return JSON.parse(localStorage.getItem(storageKey) || "[]");
+          return JSON.parse(localStorage.getItem(storageKey("sessoes")) || "[]");
         } catch {
           return [];
         }
       }
 
       function saveLocalSessions(sessoes) {
-        localStorage.setItem(storageKey, JSON.stringify(sessoes));
+        localStorage.setItem(storageKey("sessoes"), JSON.stringify(sessoes));
       }
 
       function localSubjects() {
         try {
-          return JSON.parse(localStorage.getItem(subjectStorageKey) || "[]");
+          return JSON.parse(localStorage.getItem(storageKey("materias")) || "[]");
         } catch {
           return [];
         }
       }
 
       function saveLocalSubjects(materias) {
-        localStorage.setItem(subjectStorageKey, JSON.stringify(materias));
+        localStorage.setItem(storageKey("materias"), JSON.stringify(materias));
       }
 
       function clearLegacyQueryString() {
@@ -580,6 +587,7 @@
         doc.save(`relatorio-no-meu-ritmo-${new Date().toISOString().slice(0, 10)}.pdf`);
       });
       clearLegacyQueryString();
+      window.loadData = loadData;
       loadData().catch((error) => {
         $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
         $("feedback").textContent = `Erro ao carregar dados: ${error.message}`;

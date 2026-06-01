@@ -13,6 +13,12 @@ AUTH_SCRIPT = """
       return sessionStorage.getItem(AUTH_KEY) || "";
     }
 
+    function getUser() {
+      return sessionStorage.getItem(USER_KEY) || "";
+    }
+
+    window.noMeuRitmoCurrentUser = getUser;
+
     function setAccess(username, password) {
       sessionStorage.setItem(AUTH_KEY, btoa(username + ":" + password));
       sessionStorage.setItem(USER_KEY, username);
@@ -124,7 +130,9 @@ AUTH_SCRIPT = """
 
     window.fetch = async (resource, options = {}) => {
       const url = typeof resource === "string" ? resource : resource.url;
-      const needsLogin = url && url.includes("/api/materias");
+      const needsLogin = url && url.includes("/api/")
+        && !url.includes("/api/login")
+        && !url.includes("/api/cadastro-rapido");
       const headers = new Headers(options.headers || {});
 
       if (needsLogin && getToken()) {

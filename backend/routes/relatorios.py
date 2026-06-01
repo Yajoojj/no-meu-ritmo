@@ -8,6 +8,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from backend.auth import usuario_atual_ou_erro
 from backend.storage import listar_materias, listar_sessoes
 
 relatorios_bp = Blueprint("relatorios", __name__)
@@ -24,9 +25,13 @@ def baixar_relatorio_pdf():
       200:
         description: Arquivo PDF com resumo de materias, tempo total e sessoes registradas.
     """
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+
     buffer = BytesIO()
-    sessoes = listar_sessoes()
-    materias = listar_materias()
+    sessoes = listar_sessoes(usuario)
+    materias = listar_materias(usuario)
 
     documento = SimpleDocTemplate(
         buffer,

@@ -1,13 +1,18 @@
 import unittest
+from base64 import b64encode
 
 from backend import create_app
 from backend.data import MATERIAS, SESSOES
+from backend.storage import USUARIOS_LOCAIS, gerar_hash_senha
 
 
 class ApiNoMeuRitmoTest(unittest.TestCase):
     def setUp(self):
         MATERIAS.clear()
         SESSOES.clear()
+        USUARIOS_LOCAIS[:] = [
+            {"id": 1, "username": "aluno", "senha_hash": gerar_hash_senha("1234")}
+        ]
         app = create_app()
         app.config["TESTING"] = True
         self.client = app.test_client()
@@ -23,6 +28,10 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
                 "observacao": "Teste automatizado da rota POST.",
             },
         )
+
+    def auth(self, username, password):
+        token = b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+        return {"Authorization": f"Basic {token}"}
 
     def test_lista_materias_sem_mock(self):
         resposta = self.client.get("/api/materias")
@@ -88,6 +97,37 @@ class ApiNoMeuRitmoTest(unittest.TestCase):
         self.assertEqual(removida.status_code, 200)
         self.assertEqual(removida.get_json()["materia"]["nome"], "Programacao Web")
         self.assertEqual(self.client.get("/api/materias").get_json(), [])
+
+    def test_contas_nao_compartilham_dados(self):
+        self.client.post("/api/cadastro-rapido", json={"username": "ana", "password": "1234"})
+        self.client.post("/api/cadastro-rapido", json={"username": "bia", "password": "1234"})
+
+        self.client.post(
+            "/api/materias",
+            headers=self.auth("ana", "1234"),
+            json={
+                "nome": "Calculo",
+                "prioridade": "alta",
+                "cor": "#2563eb",
+                "descricao": "Lista da Ana.",
+            },
+        )
+        self.client.post(
+            "/api/materias",
+            headers=self.auth("bia", "1234"),
+            json={
+                "nome": "Redes",
+                "prioridade": "media",
+                "cor": "#0f766e",
+                "descricao": "Lista da Bia.",
+            },
+        )
+
+        materias_ana = self.client.get("/api/materias", headers=self.auth("ana", "1234")).get_json()
+        materias_bia = self.client.get("/api/materias", headers=self.auth("bia", "1234")).get_json()
+
+        self.assertEqual([item["nome"] for item in materias_ana], ["Calculo"])
+        self.assertEqual([item["nome"] for item in materias_bia], ["Redes"])
 
     def test_rejeita_sessao_invalida(self):
         resposta = self.client.post(

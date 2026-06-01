@@ -3,6 +3,7 @@ from datetime import date
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
+from backend.auth import usuario_atual_ou_erro
 from backend.schemas import SessaoEstudoEntrada
 from backend.storage import listar_sessoes as buscar_sessoes
 from backend.storage import registrar_sessao as salvar_sessao
@@ -21,7 +22,10 @@ def listar_sessoes():
       200:
         description: Historico das sessoes cadastradas, vindo do Supabase quando configurado ou da memoria local.
     """
-    return jsonify(buscar_sessoes())
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+    return jsonify(buscar_sessoes(usuario))
 
 
 @sessoes_bp.post("/sessoes")
@@ -67,6 +71,10 @@ def registrar_sessao():
       422:
         description: Dados enviados nao passaram pela validacao.
     """
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+
     dados = request.get_json(silent=True)
     if dados is None:
         return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
@@ -78,6 +86,6 @@ def registrar_sessao():
 
     sessao = entrada.model_dump()
     sessao["data_registro"] = date.today().isoformat()
-    sessao = salvar_sessao(sessao)
+    sessao = salvar_sessao(sessao, usuario)
 
     return jsonify({"mensagem": "Sessao registrada com sucesso.", "sessao": sessao}), 201

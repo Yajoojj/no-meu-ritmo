@@ -41,11 +41,27 @@ def cliente_supabase():
     return create_client(url, key)
 
 
+def usuario_demo():
+    return {"id": 1, "username": "aluno"}
+
+
+def usuario_id(usuario: dict | None):
+    return usuario.get("id") if usuario else usuario_demo()["id"]
+
+
+def usuario_username(usuario: dict | None):
+    return usuario.get("username") if usuario else usuario_demo()["username"]
+
+
 def gerar_hash_senha(senha: str) -> str:
     return hashlib.sha256(senha.encode("utf-8")).hexdigest()
 
 
 def autenticar_usuario(username: str, senha: str) -> bool:
+    return obter_usuario_autenticado(username, senha) is not None
+
+
+def obter_usuario_autenticado(username: str, senha: str):
     username = (username or "").strip()
     senha_hash = gerar_hash_senha(senha or "")
 
@@ -54,20 +70,28 @@ def autenticar_usuario(username: str, senha: str) -> bool:
         try:
             resposta = (
                 cliente.table(TABELA_USUARIOS)
-                .select("senha_hash")
+                .select("id, username, senha_hash")
                 .eq("username", username)
                 .limit(1)
                 .execute()
             )
-            if resposta.data:
-                return resposta.data[0].get("senha_hash") == senha_hash
+            if resposta.data and resposta.data[0].get("senha_hash") == senha_hash:
+                usuario = resposta.data[0]
+                return {"id": usuario["id"], "username": usuario["username"]}
         except Exception:
             pass
 
-    return any(
-        usuario["username"] == username and usuario["senha_hash"] == senha_hash
-        for usuario in USUARIOS_LOCAIS
+    usuario = next(
+        (
+            item
+            for item in USUARIOS_LOCAIS
+            if item["username"] == username and item["senha_hash"] == senha_hash
+        ),
+        None,
     )
+    if usuario:
+        return {"id": usuario["id"], "username": usuario["username"]}
+    return None
 
 
 def cadastrar_usuario(username: str, senha: str):
@@ -113,36 +137,43 @@ def cadastrar_usuario(username: str, senha: str):
     return retorno, None
 
 
-def listar_sessoes():
+def listar_sessoes(usuario: dict | None = None):
     cliente = cliente_supabase()
     if cliente is None:
-        return SESSOES
+        username = usuario_username(usuario)
+        return [sessao for sessao in SESSOES if sessao.get("usuario") == username]
 
     try:
         resposta = (
             cliente.table(TABELA_SESSOES)
             .select("*, materias(nome)")
+            .eq("usuario_id", usuario_id(usuario))
             .order("id", desc=False)
             .execute()
         )
     except Exception:
-        return SESSOES
+        return []
 
-    dados = resposta.data or []
-    return [normalizar_sessao(item) for item in dados] or SESSOES
+    return [normalizar_sessao(item) for item in (resposta.data or [])]
 
 
-def listar_materias():
+def listar_materias(usuario: dict | None = None):
     cliente = cliente_supabase()
-    materias_base = []
-    if cliente is not None:
+    if cliente is None:
+        username = usuario_username(usuario)
+        materias_base = [materia for materia in MATERIAS if materia.get("usuario") == username]
+    else:
         try:
-            resposta = cliente.table(TABELA_MATERIAS).select("*").order("id", desc=False).execute()
+            resposta = (
+                cliente.table(TABELA_MATERIAS)
+                .select("*")
+                .eq("usuario_id", usuario_id(usuario))
+                .order("id", desc=False)
+                .execute()
+            )
             materias_base = resposta.data or []
         except Exception:
-            materias_base = MATERIAS
-    else:
-        materias_base = MATERIAS
+            materias_base = []
 
     materias = {
         materia["nome"]: {
@@ -152,7 +183,7 @@ def listar_materias():
         }
         for materia in materias_base
     }
-    for sessao in listar_sessoes():
+    for sessao in listar_sessoes(usuario):
         nome = sessao.get("materia") or sessao.get("nome")
         if not nome:
             continue
@@ -179,43 +210,42 @@ def listar_materias():
     return list(materias.values())
 
 
-def obter_materia(materia_id: int):
-    cliente = cliente_supabase()
-    if cliente is not None:
-        try:
-            resposta = cliente.table(TABELA_MATERIAS).select("*").eq("id", materia_id).limit(1).execute()
-            if resposta.data:
-                return resposta.data[0]
-        except Exception:
-            pass
-
-    return next((materia for materia in MATERIAS if materia["id"] == materia_id), None)
-
-
-def criar_materia(dados: dict):
-    materia = dict(dados)
-    cliente = cliente_supabase()
-    if cliente is not None:
-        try:
-            resposta = cliente.table(TABELA_MATERIAS).insert(materia).execute()
-            if resposta.data:
-                return resposta.data[0]
-        except Exception:
-            pass
-
-    materia["id"] = proximo_id_materia()
-    MATERIAS.append(materia)
-    return materia
-
-
-def atualizar_materia(materia_id: int, dados: dict):
+def obter_materia(materia_id: int, usuario: dict | None = None):
     cliente = cliente_supabase()
     if cliente is not None:
         try:
             resposta = (
                 cliente.table(TABELA_MATERIAS)
-                .update(dict(dados))
+                .select("*")
                 .eq("id", materia_id)
+                .eq("usuario_id", usuario_id(usuario))
+                .limit(1)
+                .execute()
+            )
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            return None
+
+    username = usuario_username(usuario)
+    return next(
+        (
+            materia
+            for materia in MATERIAS
+            if int(materia["id"]) == int(materia_id) and materia.get("usuario") == username
+        ),
+        None,
+    )
+
+
+def criar_materia(dados: dict, usuario: dict | None = None):
+    materia = dict(dados)
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = (
+                cliente.table(TABELA_MATERIAS)
+                .insert({**materia, "usuario_id": usuario_id(usuario)})
                 .execute()
             )
             if resposta.data:
@@ -223,7 +253,29 @@ def atualizar_materia(materia_id: int, dados: dict):
         except Exception:
             pass
 
-    materia = obter_materia(materia_id)
+    materia["id"] = proximo_id_materia()
+    materia["usuario"] = usuario_username(usuario)
+    MATERIAS.append(materia)
+    return materia
+
+
+def atualizar_materia(materia_id: int, dados: dict, usuario: dict | None = None):
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = (
+                cliente.table(TABELA_MATERIAS)
+                .update(dict(dados))
+                .eq("id", materia_id)
+                .eq("usuario_id", usuario_id(usuario))
+                .execute()
+            )
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            pass
+
+    materia = obter_materia(materia_id, usuario)
     if materia is None:
         return None
     materia.update(dados)
@@ -231,22 +283,28 @@ def atualizar_materia(materia_id: int, dados: dict):
     return materia
 
 
-def excluir_materia(materia_id: int):
-    cliente = cliente_supabase()
-    materia = obter_materia(materia_id)
+def excluir_materia(materia_id: int, usuario: dict | None = None):
+    materia = obter_materia(materia_id, usuario)
     if materia is None:
         materia = next(
-            (item for item in listar_materias() if int(item.get("id", 0)) == int(materia_id)),
+            (item for item in listar_materias(usuario) if int(item.get("id", 0)) == int(materia_id)),
             None,
         )
         if materia is None:
             return None
 
+    cliente = cliente_supabase()
     if cliente is not None:
         try:
-            cliente.table(TABELA_PLANOS).delete().eq("materia_id", materia_id).execute()
-            cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).execute()
-            resposta = cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
+            cliente.table(TABELA_PLANOS).delete().eq("materia_id", materia_id).eq("usuario_id", usuario_id(usuario)).execute()
+            cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).eq("usuario_id", usuario_id(usuario)).execute()
+            resposta = (
+                cliente.table(TABELA_MATERIAS)
+                .delete()
+                .eq("id", materia_id)
+                .eq("usuario_id", usuario_id(usuario))
+                .execute()
+            )
             if resposta.data:
                 return resposta.data[0]
             return materia
@@ -254,41 +312,66 @@ def excluir_materia(materia_id: int):
             pass
 
     nome = materia.get("nome")
-    MATERIAS[:] = [item for item in MATERIAS if int(item["id"]) != int(materia_id)]
-    SESSOES[:] = [sessao for sessao in SESSOES if sessao.get("materia") != nome]
+    username = usuario_username(usuario)
+    MATERIAS[:] = [
+        item
+        for item in MATERIAS
+        if not (int(item["id"]) == int(materia_id) and item.get("usuario") == username)
+    ]
+    SESSOES[:] = [
+        sessao
+        for sessao in SESSOES
+        if not (sessao.get("materia") == nome and sessao.get("usuario") == username)
+    ]
     return materia
 
 
-def excluir_materia_por_nome(nome: str):
+def excluir_materia_por_nome(nome: str, usuario: dict | None = None):
     nome = (nome or "").strip()
     if not nome:
         return None
 
-    materia = next((item for item in listar_materias() if item.get("nome") == nome), None)
+    materia = next((item for item in listar_materias(usuario) if item.get("nome") == nome), None)
     if materia is None:
         return None
 
     cliente = cliente_supabase()
     if cliente is not None:
         try:
-            resposta = cliente.table(TABELA_MATERIAS).select("*").eq("nome", nome).limit(1).execute()
+            resposta = (
+                cliente.table(TABELA_MATERIAS)
+                .select("*")
+                .eq("nome", nome)
+                .eq("usuario_id", usuario_id(usuario))
+                .limit(1)
+                .execute()
+            )
             if resposta.data:
                 materia_banco = resposta.data[0]
                 materia_id = materia_banco["id"]
-                cliente.table(TABELA_PLANOS).delete().eq("materia_id", materia_id).execute()
-                cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).execute()
-                cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
+                cliente.table(TABELA_PLANOS).delete().eq("materia_id", materia_id).eq("usuario_id", usuario_id(usuario)).execute()
+                cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).eq("usuario_id", usuario_id(usuario)).execute()
+                cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).eq("usuario_id", usuario_id(usuario)).execute()
                 return materia_banco
         except Exception:
             pass
 
-    MATERIAS[:] = [item for item in MATERIAS if item.get("nome") != nome]
-    SESSOES[:] = [sessao for sessao in SESSOES if sessao.get("materia") != nome]
+    username = usuario_username(usuario)
+    MATERIAS[:] = [
+        item
+        for item in MATERIAS
+        if not (item.get("nome") == nome and item.get("usuario") == username)
+    ]
+    SESSOES[:] = [
+        sessao
+        for sessao in SESSOES
+        if not (sessao.get("materia") == nome and sessao.get("usuario") == username)
+    ]
     return materia
 
 
-def listar_plano_hoje():
-    materias = listar_materias()
+def listar_plano_hoje(usuario: dict | None = None):
+    materias = listar_materias(usuario)
     if not materias:
         return []
 
@@ -309,18 +392,20 @@ def listar_plano_hoje():
     return plano
 
 
-def registrar_sessao(sessao: dict) -> dict:
+def registrar_sessao(sessao: dict, usuario: dict | None = None) -> dict:
     sessao = dict(sessao)
     cliente = cliente_supabase()
     if cliente is None:
         sessao["id"] = proximo_id_sessao()
+        sessao["usuario"] = usuario_username(usuario)
         SESSOES.append(sessao)
         return sessao
 
     try:
-        materia = obter_ou_criar_materia_por_nome(sessao["materia"])
+        materia = obter_ou_criar_materia_por_nome(sessao["materia"], usuario)
         payload = {
             "materia_id": materia["id"],
+            "usuario_id": usuario_id(usuario),
             "tipo_estudo": sessao["tipo_estudo"],
             "duracao_minutos": sessao["duracao_minutos"],
             "nivel_foco": sessao["nivel_foco"],
@@ -330,6 +415,7 @@ def registrar_sessao(sessao: dict) -> dict:
         resposta = cliente.table(TABELA_SESSOES).insert(payload).execute()
     except Exception:
         sessao["id"] = proximo_id_sessao()
+        sessao["usuario"] = usuario_username(usuario)
         SESSOES.append(sessao)
         return sessao
 
@@ -346,10 +432,18 @@ def cor_por_nome(nome: str) -> str:
     return cores[indice]
 
 
-def obter_ou_criar_materia_por_nome(nome: str):
+def obter_ou_criar_materia_por_nome(nome: str, usuario: dict | None = None):
     cliente = cliente_supabase()
     if cliente is None:
-        existente = next((materia for materia in MATERIAS if materia["nome"] == nome), None)
+        username = usuario_username(usuario)
+        existente = next(
+            (
+                materia
+                for materia in MATERIAS
+                if materia["nome"] == nome and materia.get("usuario") == username
+            ),
+            None,
+        )
         if existente:
             return existente
         return criar_materia(
@@ -358,21 +452,34 @@ def obter_ou_criar_materia_por_nome(nome: str):
                 "prioridade": "media",
                 "cor": cor_por_nome(nome),
                 "descricao": None,
-            }
+            },
+            usuario,
         )
 
-    resposta = cliente.table(TABELA_MATERIAS).select("*").eq("nome", nome).limit(1).execute()
+    resposta = (
+        cliente.table(TABELA_MATERIAS)
+        .select("*")
+        .eq("nome", nome)
+        .eq("usuario_id", usuario_id(usuario))
+        .limit(1)
+        .execute()
+    )
     if resposta.data:
         return resposta.data[0]
 
-    criado = cliente.table(TABELA_MATERIAS).insert(
-        {
-            "nome": nome,
-            "prioridade": "media",
-            "cor": cor_por_nome(nome),
-            "descricao": None,
-        }
-    ).execute()
+    criado = (
+        cliente.table(TABELA_MATERIAS)
+        .insert(
+            {
+                "nome": nome,
+                "prioridade": "media",
+                "cor": cor_por_nome(nome),
+                "descricao": None,
+                "usuario_id": usuario_id(usuario),
+            }
+        )
+        .execute()
+    )
     return criado.data[0]
 
 

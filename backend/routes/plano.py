@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 
+from backend.auth import usuario_atual_ou_erro
 from backend.storage import listar_plano_hoje as buscar_plano_hoje
 
 plano_bp = Blueprint("plano", __name__)
@@ -31,4 +32,7 @@ def listar_plano_hoje():
               meta:
                 type: string
     """
-    return jsonify(buscar_plano_hoje())
+    usuario, erro = usuario_atual_ou_erro()
+    if erro:
+        return erro
+    return jsonify(buscar_plano_hoje(usuario))

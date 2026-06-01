@@ -4,6 +4,10 @@ import flet as ft
 import requests
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:5000/api")
+API_AUTH = (
+    os.getenv("API_USERNAME", "aluno"),
+    os.getenv("API_PASSWORD", "1234"),
+)
 
 
 def borda_card():
@@ -12,7 +16,7 @@ def borda_card():
 
 
 def buscar_json(caminho: str):
-    resposta = requests.get(f"{API_BASE_URL}{caminho}", timeout=8)
+    resposta = requests.get(f"{API_BASE_URL}{caminho}", auth=API_AUTH, timeout=8)
     resposta.raise_for_status()
     return resposta.json()
 
@@ -130,7 +134,7 @@ def main(page: ft.Page):
             return
 
         try:
-            resposta = requests.post(f"{API_BASE_URL}/sessoes", json=payload, timeout=8)
+            resposta = requests.post(f"{API_BASE_URL}/sessoes", json=payload, auth=API_AUTH, timeout=8)
             dados = resposta.json()
             if resposta.status_code == 201:
                 feedback.value = dados["mensagem"]
