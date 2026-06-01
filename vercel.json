@@ -5,7 +5,10 @@
       "src": "app.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": ["public/**"]
+        "includeFiles": [
+          "backend/**",
+          "public/**"
+        ]
       }
     }
   ],
