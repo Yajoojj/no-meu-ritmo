@@ -3,8 +3,9 @@ from datetime import date
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
-from backend.data import SESSOES, proximo_id_sessao
 from backend.schemas import SessaoEstudoEntrada
+from backend.storage import listar_sessoes as buscar_sessoes
+from backend.storage import registrar_sessao as salvar_sessao
 
 sessoes_bp = Blueprint("sessoes", __name__)
 
@@ -12,24 +13,24 @@ sessoes_bp = Blueprint("sessoes", __name__)
 @sessoes_bp.get("/sessoes")
 def listar_sessoes():
     """
-    Lista as sessões de estudo registradas.
+    Lista as sessoes de estudo registradas.
     ---
     tags:
-      - Sessões
+      - Sessoes
     responses:
       200:
-        description: Histórico em memória das sessões cadastradas.
+        description: Historico das sessoes cadastradas, vindo do Supabase quando configurado ou da memoria local.
     """
-    return jsonify(SESSOES)
+    return jsonify(buscar_sessoes())
 
 
 @sessoes_bp.post("/sessoes")
 def registrar_sessao():
     """
-    Registra uma nova sessão de estudo com validação.
+    Registra uma nova sessao de estudo com validacao Pydantic.
     ---
     tags:
-      - Sessões
+      - Sessoes
     parameters:
       - in: body
         name: sessao
@@ -44,7 +45,7 @@ def registrar_sessao():
           properties:
             materia:
               type: string
-              example: Programação Web
+              example: Programacao Web
             tipo_estudo:
               type: string
               enum: [leitura, revisao, exercicios, projeto]
@@ -57,27 +58,26 @@ def registrar_sessao():
               example: 4
             observacao:
               type: string
-              example: Finalizei a parte de integração com a API.
+              example: Finalizei a parte de integracao com a API.
     responses:
       201:
-        description: Sessão registrada com sucesso.
+        description: Sessao registrada com sucesso.
       400:
-        description: JSON inválido ou ausente.
+        description: JSON invalido ou ausente.
       422:
-        description: Dados enviados não passaram pela validação.
+        description: Dados enviados nao passaram pela validacao.
     """
     dados = request.get_json(silent=True)
     if dados is None:
-        return jsonify({"erro": "Envie um JSON válido no corpo da requisição."}), 400
+        return jsonify({"erro": "Envie um JSON valido no corpo da requisicao."}), 400
 
     try:
         entrada = SessaoEstudoEntrada.model_validate(dados)
     except ValidationError as erro:
-        return jsonify({"erro": "Dados inválidos.", "detalhes": erro.errors()}), 422
+        return jsonify({"erro": "Dados invalidos.", "detalhes": erro.errors()}), 422
 
     sessao = entrada.model_dump()
-    sessao["id"] = proximo_id_sessao()
     sessao["data_registro"] = date.today().isoformat()
-    SESSOES.append(sessao)
+    sessao = salvar_sessao(sessao)
 
-    return jsonify({"mensagem": "Sessão registrada com sucesso.", "sessao": sessao}), 201
+    return jsonify({"mensagem": "Sessao registrada com sucesso.", "sessao": sessao}), 201

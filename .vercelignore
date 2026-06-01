@@ -7,3 +7,6 @@ docs/
 outputs/
 work/
 .pytest_cache/
+package-lock.json
+pyproject.toml
+uv.lock

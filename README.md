@@ -1,16 +1,24 @@
 # No Meu Ritmo!
 
-Aplicação pessoal de organização de estudos feita para atividade universitária. O projeto tem backend em Flask, frontend em Flet e uma landing page em HTML com Tailwind CSS.
+Aplicacao completa de organizacao de estudos feita para atividade universitaria. O projeto contem backend em Flask, frontend em Flet e uma landing page estatica em HTML com Tailwind CSS.
+
+## Requisitos da atividade
+
+- Backend Flask organizado com Blueprints.
+- Pelo menos 2 endpoints GET documentados com Swagger/Docstring.
+- Pelo menos 1 endpoint POST com validacao usando Pydantic.
+- Frontend Flet que lista dados vindos de endpoint GET.
+- Formulario Flet que consome endpoint POST e exibe feedback.
+- Landing page com nome, descricao e instrucoes de execucao.
+- Dados em memoria por padrao, com persistencia opcional no Supabase/Postgres.
 
 ## O que o sistema faz
 
-- Lista matérias cadastradas.
+- Lista materias cadastradas.
 - Mostra um plano de estudos para o dia.
-- Registra sessões de estudo com matéria, tipo, duração, foco e observação.
+- Registra sessoes de estudo com materia, tipo, duracao, foco e observacao.
 - Valida o cadastro com Pydantic.
 - Documenta a API com Swagger.
-
-Os dados ficam em memória, como permitido na proposta.
 
 ## Tecnologias
 
@@ -22,8 +30,9 @@ Os dados ficam em memória, como permitido na proposta.
 - Flet
 - HTML
 - Tailwind CSS
+- Supabase/Postgres opcional
 
-## Como rodar
+## Como rodar localmente
 
 Crie o ambiente virtual:
 
@@ -37,7 +46,7 @@ Ative o ambiente no Windows:
 .venv\Scripts\activate
 ```
 
-Instale as dependências:
+Instale as dependencias:
 
 ```bash
 pip install -r requirements-dev.txt
@@ -53,14 +62,29 @@ Acesse:
 
 - Landing page: <http://127.0.0.1:5000/>
 - Swagger: <http://127.0.0.1:5000/apidocs/>
-- Matérias: <http://127.0.0.1:5000/api/materias>
+- Materias: <http://127.0.0.1:5000/api/materias>
 - Plano do dia: <http://127.0.0.1:5000/api/plano-hoje>
+- Sessoes: <http://127.0.0.1:5000/api/sessoes>
 
 Em outro terminal, rode o frontend:
 
 ```bash
 python frontend/main.py
 ```
+
+## Supabase opcional
+
+O projeto funciona sem banco, usando memoria, como permitido na atividade. Para persistir as sessoes no Supabase/Postgres:
+
+1. Rode o SQL de `docs/supabase.sql` no SQL Editor do Supabase.
+2. Configure as variaveis:
+
+```bash
+SUPABASE_URL=https://cjdtjvwrikpgzprjhmty.supabase.co
+SUPABASE_KEY=sua_chave_publishable
+```
+
+Na Vercel, cadastre as mesmas variaveis em Production, Preview e Development.
 
 ## Exemplo de POST
 
@@ -74,11 +98,11 @@ Corpo:
 
 ```json
 {
-  "materia": "Programação Web",
+  "materia": "Programacao Web",
   "tipo_estudo": "projeto",
   "duracao_minutos": 45,
   "nivel_foco": 4,
-  "observacao": "Testei a integração do Flet com a API."
+  "observacao": "Testei a integracao do Flet com a API."
 }
 ```
 
@@ -90,8 +114,6 @@ python -m unittest
 
 ## Deploy
 
-A aplicação foi preparada para deploy na Vercel usando o Flask como backend. A landing page fica na rota principal e a API fica em `/api`.
+A aplicacao esta preparada para deploy na Vercel usando Flask. A landing page fica na rota principal, a API fica em `/api` e a documentacao Swagger fica em `/apidocs/`.
 
-O frontend Flet é executado localmente para a demonstração, porque esse é o uso mais comum da tecnologia pedida na atividade.
-
-Repositório público: <https://github.com/Yajoojj/no-meu-ritmo>
+Repositorio publico: <https://github.com/Yajoojj/no-meu-ritmo>

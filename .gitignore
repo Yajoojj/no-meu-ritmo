@@ -8,3 +8,9 @@ build/
 *.log
 outputs/
 work/
+
+.vercel
+.env*
+package-lock.json
+pyproject.toml
+uv.lock
