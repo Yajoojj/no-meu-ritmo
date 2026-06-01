@@ -131,7 +131,15 @@ def excluir_materia(materia_id: int):
       404:
         description: Materia nao encontrada.
     """
-    materia = remover_materia(materia_id)
+    try:
+        materia = remover_materia(materia_id)
+    except RuntimeError:
+        return jsonify(
+            {
+                "erro": "Nao foi possivel excluir esta materia.",
+                "detalhes": "Ela pode ter sessoes vinculadas. Remova as sessoes no banco ou mantenha a materia no historico.",
+            }
+        ), 409
     if materia is None:
         return jsonify({"erro": "Materia nao encontrada."}), 404
     return jsonify({"mensagem": "Materia removida com sucesso.", "materia": materia})

@@ -68,7 +68,7 @@ def listar_materias():
             "total_minutos": 0,
             "total_sessoes": 0,
         }
-        for materia in MATERIAS
+        for materia in materias_base
     }
     for sessao in listar_sessoes():
         nome = sessao.get("materia") or sessao.get("nome")
@@ -157,8 +157,8 @@ def excluir_materia(materia_id: int):
             resposta = cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
             if resposta.data:
                 return resposta.data[0]
-        except Exception:
-            pass
+        except Exception as exc:
+            raise RuntimeError("Nao foi possivel excluir esta materia.") from exc
 
     materia = obter_materia(materia_id)
     if materia is None:

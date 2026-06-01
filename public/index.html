@@ -180,6 +180,10 @@
         return [...byName.values()];
       }
 
+      function usingRemoteSubjects(apiSubjects) {
+        return Array.isArray(apiSubjects) && apiSubjects.length > 0;
+      }
+
       function mergeSessions(apiSessions, browserSessions) {
         const seen = new Set();
         return [...apiSessions, ...browserSessions].filter((sessao) => {
@@ -300,7 +304,7 @@
         const apiSessions = results[2].status === "fulfilled" ? results[2].value : [];
         state.sessoes = mergeSessions(apiSessions, localSessions());
         const apiSubjects = results[0].status === "fulfilled" ? results[0].value : [];
-        state.materias = mergeSubjects(apiSubjects, localSubjects(), state.sessoes);
+        state.materias = mergeSubjects(apiSubjects, usingRemoteSubjects(apiSubjects) ? [] : localSubjects(), state.sessoes);
         state.plano = buildPlan(state.materias);
         renderAll();
         if (results.some((result) => result.status === "rejected")) {
@@ -326,9 +330,15 @@
         const deleteButton = event.target.closest("[data-delete-subject]");
         if (deleteButton) {
           const id = deleteButton.dataset.deleteSubject;
+          const response = await fetch(`/api/materias/${id}`, { method: "DELETE" });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            $("feedback").className = "min-h-5 text-sm font-medium text-red-700";
+            $("feedback").textContent = data.detalhes || data.erro || "Não foi possível excluir a matéria.";
+            return;
+          }
           saveLocalSubjects(localSubjects().filter((item) => String(item.id) !== String(id)));
-          fetch(`/api/materias/${id}`, { method: "DELETE" }).catch(() => {});
-          loadData();
+          await loadData();
           return;
         }
 
@@ -370,9 +380,11 @@
             materia = data.materia;
           }
         } catch {}
-        const local = localSubjects().filter((item) => String(item.id) !== String(id) && item.nome !== materia.nome);
-        local.push(materia);
-        saveLocalSubjects(local);
+        if (!Number.isFinite(Number(materia.id)) || String(materia.id).length > 10) {
+          const local = localSubjects().filter((item) => String(item.id) !== String(id) && item.nome !== materia.nome);
+          local.push(materia);
+          saveLocalSubjects(local);
+        }
         $("subjectForm").reset();
         $("subjectId").value = "";
         $("subjectColor").value = "#2563eb";
@@ -422,37 +434,92 @@
         const focos = state.sessoes.map((item) => Number(item.nivel_foco || 0)).filter(Boolean);
         const focoMedio = focos.length ? (focos.reduce((a, b) => a + b, 0) / focos.length).toFixed(1) : "-";
         let y = 18;
+        doc.setFillColor(23, 23, 23);
+        doc.rect(0, 0, 210, 34, "F");
+        doc.setTextColor(255, 255, 255);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(16);
-        doc.text("No Meu Ritmo - Relatorio de Estudos", 14, y);
-        y += 10;
+        doc.setFontSize(18);
+        doc.text("No Meu Ritmo", 14, 16);
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(11);
-        doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}`, 14, y);
-        y += 12;
-        doc.text(`Sessoes: ${state.sessoes.length}`, 14, y);
-        doc.text(`Tempo total: ${total} min`, 75, y);
-        doc.text(`Foco medio: ${focoMedio}`, 145, y);
-        y += 14;
+        doc.setFontSize(10);
+        doc.text(`Relatorio de estudos - ${new Date().toLocaleDateString("pt-BR")}`, 14, 24);
+        doc.setTextColor(23, 23, 23);
+        y = 48;
+
+        const cards = [
+          ["Sessoes", String(state.sessoes.length)],
+          ["Tempo total", `${total} min`],
+          ["Foco medio", focoMedio],
+        ];
+        cards.forEach((card, index) => {
+          const x = 14 + index * 62;
+          doc.setDrawColor(212, 212, 212);
+          doc.setFillColor(250, 250, 250);
+          doc.roundedRect(x, y, 54, 24, 2, 2, "FD");
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(82, 82, 82);
+          doc.text(card[0], x + 4, y + 8);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(14);
+          doc.setTextColor(23, 23, 23);
+          doc.text(card[1], x + 4, y + 18);
+        });
+        y += 38;
+
         doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.text("Materias", 14, y);
+        y += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        if (!state.materias.length) {
+          doc.text("Nenhuma materia cadastrada.", 14, y);
+          y += 10;
+        } else {
+          state.materias.forEach((materia) => {
+            doc.setDrawColor(229, 229, 229);
+            doc.line(14, y, 196, y);
+            y += 6;
+            doc.setFont("helvetica", "bold");
+            doc.text(materia.nome || "Materia", 14, y);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(82, 82, 82);
+            doc.text(`${materia.prioridade || "media"} · ${materia.total_minutos || 0} min`, 130, y);
+            doc.setTextColor(23, 23, 23);
+            y += 7;
+          });
+        }
+
+        y += 4;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
         doc.text("Historico", 14, y);
         y += 8;
         doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
         if (!state.sessoes.length) {
           doc.text("Nenhuma sessao registrada ainda.", 14, y);
         } else {
           state.sessoes.forEach((sessao) => {
-            if (y > 275) {
+            if (y > 265) {
               doc.addPage();
-              y = 18;
+              y = 22;
             }
-            const linha = `${sessao.data_registro || ""} - ${sessao.materia || "Materia"} - ${sessao.tipo_estudo || ""} - ${sessao.duracao_minutos || 0} min - foco ${sessao.nivel_foco || "-"}`;
-            doc.text(linha, 14, y);
-            y += 6;
+            doc.setDrawColor(229, 229, 229);
+            doc.setFillColor(250, 250, 250);
+            doc.roundedRect(14, y, 182, sessao.observacao ? 24 : 17, 2, 2, "FD");
+            y += 7;
+            doc.setFont("helvetica", "bold");
+            doc.text(sessao.materia || "Materia", 18, y);
+            doc.setFont("helvetica", "normal");
+            doc.setTextColor(82, 82, 82);
+            doc.text(`${sessao.data_registro || ""} · ${sessao.tipo_estudo || ""} · ${sessao.duracao_minutos || 0} min · foco ${sessao.nivel_foco || "-"}`, 18, y + 6);
             if (sessao.observacao) {
-              doc.text(doc.splitTextToSize(String(sessao.observacao), 180), 14, y);
-              y += 10;
+              doc.text(doc.splitTextToSize(String(sessao.observacao), 170), 18, y + 12);
             }
+            doc.setTextColor(23, 23, 23);
+            y += sessao.observacao ? 22 : 15;
           });
         }
         doc.save(`relatorio-no-meu-ritmo-${new Date().toISOString().slice(0, 10)}.pdf`);
