@@ -1,3 +1,4 @@
+import hashlib
 import os
 from functools import lru_cache
 
@@ -11,6 +12,14 @@ load_dotenv()
 
 TABELA_SESSOES = "sessoes_estudo"
 TABELA_MATERIAS = "materias"
+TABELA_USUARIOS = "usuarios_app"
+USUARIOS_LOCAIS = [
+    {
+        "id": 1,
+        "username": "aluno",
+        "senha_hash": hashlib.sha256("1234".encode("utf-8")).hexdigest(),
+    }
+]
 
 
 @lru_cache(maxsize=1)
@@ -29,6 +38,78 @@ def cliente_supabase():
         return None
 
     return create_client(url, key)
+
+
+def gerar_hash_senha(senha: str) -> str:
+    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
+
+
+def autenticar_usuario(username: str, senha: str) -> bool:
+    username = (username or "").strip()
+    senha_hash = gerar_hash_senha(senha or "")
+
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            resposta = (
+                cliente.table(TABELA_USUARIOS)
+                .select("senha_hash")
+                .eq("username", username)
+                .limit(1)
+                .execute()
+            )
+            if resposta.data:
+                return resposta.data[0].get("senha_hash") == senha_hash
+        except Exception:
+            pass
+
+    return any(
+        usuario["username"] == username and usuario["senha_hash"] == senha_hash
+        for usuario in USUARIOS_LOCAIS
+    )
+
+
+def cadastrar_usuario(username: str, senha: str):
+    username = (username or "").strip()
+    senha = senha or ""
+
+    if len(username) < 3:
+        return None, "O usuario precisa ter pelo menos 3 caracteres."
+    if len(senha) < 4:
+        return None, "A senha precisa ter pelo menos 4 caracteres."
+
+    senha_hash = gerar_hash_senha(senha)
+    usuario = {"username": username, "senha_hash": senha_hash}
+
+    cliente = cliente_supabase()
+    if cliente is not None:
+        try:
+            existe = (
+                cliente.table(TABELA_USUARIOS)
+                .select("id")
+                .eq("username", username)
+                .limit(1)
+                .execute()
+            )
+            if existe.data:
+                return None, "Usuario ja cadastrado."
+
+            resposta = cliente.table(TABELA_USUARIOS).insert(usuario).execute()
+            if resposta.data:
+                novo = dict(resposta.data[0])
+                novo.pop("senha_hash", None)
+                return novo, None
+        except Exception:
+            pass
+
+    if any(item["username"] == username for item in USUARIOS_LOCAIS):
+        return None, "Usuario ja cadastrado."
+
+    usuario["id"] = len(USUARIOS_LOCAIS) + 1
+    USUARIOS_LOCAIS.append(usuario)
+    retorno = dict(usuario)
+    retorno.pop("senha_hash", None)
+    return retorno, None
 
 
 def listar_sessoes():
@@ -88,7 +169,6 @@ def listar_materias():
         materias[nome]["total_sessoes"] += 1
 
     for materia in materias.values():
-        total = materia["total_minutos"]
         if not materia.get("descricao"):
             materia["descricao"] = (
                 f"{materia['total_sessoes']} sessao(oes) registrada(s), "
