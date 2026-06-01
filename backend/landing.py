@@ -6,49 +6,123 @@ AUTH_SCRIPT = """
     const AUTH_KEY = "no-meu-ritmo-auth";
     const originalFetch = window.fetch.bind(window);
 
-    function savedAuth() {
+    function getToken() {
       return sessionStorage.getItem(AUTH_KEY) || "";
     }
 
-    function authHeaders() {
-      const token = savedAuth();
-      return token ? { Authorization: `Basic ${token}` } : {};
+    function saveToken(usuario, senha) {
+      sessionStorage.setItem(AUTH_KEY, btoa(`${usuario}:${senha}`));
     }
 
-    async function pedirLogin() {
-      const usuario = window.prompt("Usuario para ver as materias:", "aluno");
-      if (usuario === null) return false;
+    function clearToken() {
+      sessionStorage.removeItem(AUTH_KEY);
+    }
 
-      const senha = window.prompt("Senha:", "1234");
-      if (senha === null) return false;
+    function showOverlay() {
+      if (document.getElementById("loginOverlay")) return;
 
-      sessionStorage.setItem(AUTH_KEY, btoa(`${usuario}:${senha}`));
-      return true;
+      const overlay = document.createElement("section");
+      overlay.id = "loginOverlay";
+      overlay.className = "fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 px-4";
+      overlay.innerHTML = `
+        <div class="w-full max-w-md border border-neutral-300 bg-white p-6 shadow-xl">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-500">Acesso</p>
+          <h2 class="mt-1 text-2xl font-semibold">No Meu Ritmo!</h2>
+          <p class="mt-2 text-sm text-neutral-600">Entre ou crie um cadastro rápido para acessar suas matérias.</p>
+
+          <form id="loginForm" class="mt-5 space-y-3">
+            <label class="block">
+              <span class="text-sm font-medium">Usuário</span>
+              <input id="loginUser" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" value="aluno" minlength="3" required />
+            </label>
+            <label class="block">
+              <span class="text-sm font-medium">Senha</span>
+              <input id="loginPass" type="password" class="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-950" value="1234" minlength="4" required />
+            </label>
+            <p id="loginMsg" class="min-h-5 text-sm font-medium"></p>
+            <button class="w-full rounded-md bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800" type="submit">Entrar</button>
+            <button id="signupButton" class="w-full rounded-md border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold hover:bg-neutral-50" type="button">Criar cadastro rápido</button>
+          </form>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const userInput = document.getElementById("loginUser");
+      const passInput = document.getElementById("loginPass");
+      const msg = document.getElementById("loginMsg");
+
+      async function enviar(url, texto) {
+        const usuario = userInput.value.trim();
+        const senha = passInput.value;
+        msg.className = "min-h-5 text-sm font-medium text-neutral-600";
+        msg.textContent = texto;
+
+        const response = await originalFetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: usuario, password: senha })
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          msg.className = "min-h-5 text-sm font-medium text-red-700";
+          msg.textContent = data.erro || "Não foi possível continuar.";
+          return;
+        }
+
+        saveToken(usuario, senha);
+        overlay.remove();
+        if (window.loadData) window.loadData();
+      }
+
+      document.getElementById("loginForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        enviar("/api/login", "Entrando...");
+      });
+
+      document.getElementById("signupButton").addEventListener("click", () => {
+        enviar("/api/cadastro-rapido", "Criando cadastro...");
+      });
     }
 
     window.fetch = async (resource, options = {}) => {
       const url = typeof resource === "string" ? resource : resource.url;
-      const precisaAuth = url && url.includes("/api/materias");
+      const needsLogin = url && url.includes("/api/materias");
       const headers = new Headers(options.headers || {});
 
-      if (precisaAuth) {
-        Object.entries(authHeaders()).forEach(([key, value]) => headers.set(key, value));
+      if (needsLogin && getToken()) {
+        headers.set("Authorization", `Basic ${getToken()}`);
       }
 
-      let response = await originalFetch(resource, { ...options, headers });
+      const response = await originalFetch(resource, { ...options, headers });
 
-      if (precisaAuth && response.status === 401) {
-        sessionStorage.removeItem(AUTH_KEY);
-        const autenticou = await pedirLogin();
-        if (!autenticou) return response;
-
-        const retryHeaders = new Headers(options.headers || {});
-        Object.entries(authHeaders()).forEach(([key, value]) => retryHeaders.set(key, value));
-        response = await originalFetch(resource, { ...options, headers: retryHeaders });
+      if (needsLogin && response.status === 401) {
+        clearToken();
+        showOverlay();
       }
 
       return response;
     };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const nav = document.querySelector("header nav");
+      if (nav && !document.getElementById("logoutButton")) {
+        const button = document.createElement("button");
+        button.id = "logoutButton";
+        button.type = "button";
+        button.className = "rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm font-medium hover:bg-neutral-50";
+        button.textContent = "Sair";
+        button.addEventListener("click", () => {
+          clearToken();
+          showOverlay();
+        });
+        nav.appendChild(button);
+      }
+
+      if (!getToken()) {
+        showOverlay();
+      }
+    });
   })();
 </script>
 """
