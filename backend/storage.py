@@ -152,18 +152,22 @@ def atualizar_materia(materia_id: int, dados: dict):
 
 def excluir_materia(materia_id: int):
     cliente = cliente_supabase()
-    if cliente is not None:
-        try:
-            resposta = cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
-            if resposta.data:
-                return resposta.data[0]
-        except Exception as exc:
-            raise RuntimeError("Nao foi possivel excluir esta materia.") from exc
-
     materia = obter_materia(materia_id)
     if materia is None:
         return None
-    MATERIAS.remove(materia)
+
+    if cliente is not None:
+        try:
+            cliente.table(TABELA_SESSOES).delete().eq("materia_id", materia_id).execute()
+            resposta = cliente.table(TABELA_MATERIAS).delete().eq("id", materia_id).execute()
+            if resposta.data:
+                return resposta.data[0]
+        except Exception:
+            pass
+
+    nome = materia.get("nome")
+    MATERIAS[:] = [item for item in MATERIAS if int(item["id"]) != int(materia_id)]
+    SESSOES[:] = [sessao for sessao in SESSOES if sessao.get("materia") != nome]
     return materia
 
 
